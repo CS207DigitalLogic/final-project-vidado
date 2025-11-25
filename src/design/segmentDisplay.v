@@ -31,7 +31,7 @@ module segmentDisplay (
     input clk, //时钟信号
     input reset,//复位信号
     input [11:0] menuState, //当前菜单状态 使用10进制BCD码
-    input [7:0] seconds, //当前秒数，使用10进制BCD码，范围0-99
+    input [8:0] seconds, //当前秒数，使用10进制BCD码，范围0-99
     output tub_sel1, // 从左侧开始编号，控制第1个七段数码管的显示
     output tub_sel2, // 左侧第2个七段数码管
     output tub_sel3, // 左侧第3个七段数码管
@@ -53,153 +53,86 @@ module segmentDisplay (
     parameter SEG_7 = 8'b11100000; // 显示"7"：a、b、c亮
     parameter SEG_8 = 8'b11111110; // 显示"8"：a~g全亮
     parameter SEG_9 = 8'b11100110; // 显示"9"：a、b、c、f、g亮
-    reg[7:0] seg_out_reg1; // Control the content displayed on the leftmost four digits
-    reg[7:0] seg_out_reg2; // Control the content displayed on the rightmost four digits
-    reg[7:0] seg_en_reg; // Control the visibility of the four digits
-    reg[2:0] scan_count; // Counter to control digit scanning
+    parameter SEG_OFF = 8'b00000000;
+  // -------------------------- 2. 内部信号定义 --------------------------
+    reg [2:0] scan_count;
     wire clk_out;
+    reg [7:0] seg_code[7:0]; // 存储8个数码管要显示的段码
+
+    // 时钟分频
     wire [13:0] tiaoPin = 14'd30;
     divider newclk(clk, reset, tiaoPin, clk_out);
 
-    always @(posedge clk_out or posedge reset) begin
+    // -------------------------- 3. 组合逻辑：确定每个数码管显示的内容 --------------------------
+    always @(*) begin
+        seg_code[0] = SEG_OFF; // tub_sel1
+        seg_code[1] = SEG_OFF; // tub_sel2
+        seg_code[2] = SEG_OFF; // tub_sel3
+        seg_code[3] = SEG_OFF; // tub_sel4
+        seg_code[4] = SEG_OFF; // tub_sel5
+        seg_code[5] = SEG_OFF; // tub_sel6
+        seg_code[6] = SEG_OFF; // tub_sel7
+        seg_code[7] = SEG_OFF; // tub_sel8
 
-        if (reset) begin
-            scan_count <= 3'b000;
-        end
-        else begin
-            if(scan_count == 3'b111)
-                scan_count <= 3'b000;
-            else
-                scan_count <= scan_count + 1;
-        end
+        // 根据 menuState 确定左侧数码管显示
+        case (menuState)
+            12'd100: seg_code[0] = SEG_1; // 显示 "1"
+            12'd200: seg_code[0] = SEG_2; // 显示 "2"
+            12'd300: seg_code[0] = SEG_3; // 显示 "3"
+            12'd400: seg_code[0] = SEG_4; // 显示 "4"
+            12'd410: begin seg_code[0] = SEG_4; seg_code[1] = SEG_1; end // 显示 "4" "1"
+            12'd420: begin seg_code[0] = SEG_4; seg_code[1] = SEG_2; end // 显示 "4" "2"
+            12'd430: begin seg_code[0] = SEG_4; seg_code[1] = SEG_3; end // 显示 "4" "3"
+            12'd440: begin seg_code[0] = SEG_4; seg_code[1] = SEG_4; end // 显示 "4" "4"
+            12'd450: begin seg_code[0] = SEG_4; seg_code[1] = SEG_5; end // 显示 "4" "5"
+            // 可以继续添加其他 menuState 的显示逻辑
+            default: ; // 默认保持熄灭
+        endcase
 
-
-        if (reset) begin
-            seg_en_reg <= 8'b00000000;
-        end
-        else begin
-            case (menuState[11:8])
-                4'b0001: begin // 模式：矩阵输入及存储
-                    seg_en_reg <= 8'b10000000; // 只显示最左侧数码管
-                    {seg_out_reg1, seg_out_reg2} <= SEG_1; //显示数字1
-                end
-                4'b0010: begin // 模式：矩阵生成及存储
-                    seg_en_reg <= 8'b10000000; 
-                    seg_out_reg2 <= SEG_2; //显示数字2
-                end
-                4'b0011: begin // 模式：矩阵展示
-                 seg_en_reg <= 8'b10000000; 
-                    seg_out_reg2 <= SEG_3; //显示数字3
-                    end
-                4'b0100: begin // 模式：矩阵运算
-                case (menuState[7:4])
-                    4'b0000: begin // 选择第一个运算数
-                        seg_en_reg <= 8'b10000000; // 只显示最左侧数码管
-                        seg_out_reg1 <= SEG_4; //显示数字4
-                    end
-                    4'b0001: begin // 选择第一个运算数
-                    case (scan_count)
-                        3'b111: begin
-                            seg_en_reg <= 8'b1000_0000;
-                            seg_out_reg1 <= SEG_1; //显示数字1
-                        end 
-                        3'b110: begin
-                            seg_en_reg <= 8'b0100_0000;
-                            seg_out_reg1 <= SEG_2; //显示数字2
-                        end
-                    endcase
-                        seg_en_reg <= 8'b11000000; // 显示最左侧两个数码管
-                        seg_out_reg1 <= SEG_4; //显示数字4
-                        seg_out_reg2 <= SEG_1; //显示数字1
-                    end
-                    4'b0010: begin // 选择第二个运算数
-                        seg_en_reg <= 8'b11000000; // 显示最左侧两个数码管
-                        seg_out_reg1 <= SEG_2; //显示数字2
-                        seg_out_reg2 <= SEG_2; //显示数字2
-                    end
-                    default: begin
-                        seg_en_reg <= 8'b00000000; // 不显示任何数码管
-                    end
-                endcase 
-                    case (scan_count)
-                        3'b111: begin
-                            seg_en_reg <= 8'b1000_0000;
-                            case (user)
-                                0: seg_out_reg1 <= 8'b11111100; // Digit 0 encoding
-                                1: seg_out_reg1 <= 8'b01100000; // Digit 1 encoding
-                                2: seg_out_reg1 <= 8'b11011010; // Digit 2 encoding
-                                3: seg_out_reg1 <= 8'b11110010; // Digit 3 encoding
-                                4: seg_out_reg1 <= 8'b01100110; // Digit 4 encoding
-                                5: seg_out_reg1 <= 8'b10110110; // Digit 5 encoding
-                                6: seg_out_reg1 <= 8'b10111110; // Digit 6 encoding
-                                7: seg_out_reg1 <= 8'b11100000; // Digit 7 encoding
-                                default: seg_out_reg1 <= 8'b00000000;
-                            endcase
-                        end 
-                        3'b110: begin
-                            seg_en_reg <= 8'b0100_0000;
-                            case (order)
-                                0: seg_out_reg1 <= 8'b11111100; // Digit 0 encoding
-                                1: seg_out_reg1 <= 8'b01100000; // Digit 1 encoding
-                                2: seg_out_reg1 <= 8'b11011010; // Digit 2 encoding
-                                3: seg_out_reg1 <= 8'b11110010; // Digit 3 encoding
-                                4: seg_out_reg1 <= 8'b01100110; // Digit 4 encoding
-                                5: seg_out_reg1 <= 8'b10110110; // Digit 5 encoding
-                                6: seg_out_reg1 <= 8'b10111110; // Digit 6 encoding
-                                7: seg_out_reg1 <= 8'b11100000; // Digit 7 encoding
-                                default: seg_out_reg1 <= 8'b00000000;
-                            endcase
-                        end
-                        3'b101: begin
-                            seg_en_reg <= 8'b0010_0000;
-                            case (timedifference)
-                                2'b01: seg_out_reg1 <= 8'b1111_1110; // B
-                                2'b10: seg_out_reg1 <= 8'b1110_1110; // A
-                                2'b11: seg_out_reg1 <= 8'b1011_0110; // S
-                                default: seg_out_reg1 <= 8'b1001_1100; // C
-                            endcase
-                        end
-                        3'b100: begin
-                            seg_en_reg <= 8'b0001_0000;
-                            case (rank)
-                                0: seg_out_reg1 <= 8'b11111100; // Digit 0 encoding
-                                1: seg_out_reg1 <= 8'b01100000; // Digit 1 encoding
-                                2: seg_out_reg1 <= 8'b11011010; // Digit 2 encoding
-                                3: seg_out_reg1 <= 8'b11110010; // Digit 3 encoding
-                                4: seg_out_reg1 <= 8'b01100110; // Digit 4 encoding
-                                5: seg_out_reg1 <= 8'b10110110; // Digit 5 encoding
-                                6: seg_out_reg1 <= 8'b10111110; // Digit 6 encoding
-                                7: seg_out_reg1 <= 8'b11100000; // Digit 7 encoding
-                                default: seg_out_reg1 <= 8'b00000000;
-                            endcase
-                        end
-                        3'b011: begin
-                            seg_en_reg <= 8'b0000_0000; // Do not display
-                        end
-                        3'b010: begin
-                            seg_en_reg <= 8'b0000_0000; // Do not display
-                        end
-                        3'b001: begin
-                            seg_en_reg <= 8'b0000_0000; // Do not display
-                        end
-                        3'b000 : begin
-                            seg_en_reg <= 8'b0000_0001;
-                            seg_out_reg2 <= 8'b0001_1100; // L
-                        end 
-                        default: seg_en_reg <= 8'b0000_0000;
-                    endcase
-                end
-                default: begin // Key adjustment mode
-                    seg_en_reg <= 8'b00000001; // Rightmost digit is on
-                    seg_out_reg1 <= 8'b10011100; // Display letter 'c' for change mode
-                    seg_out_reg2 <= 8'b10011100; // c
-                end
+        // 根据 seconds 确定右侧数码管显示 (如果 seconds[8] 为1，则显示秒数)
+        if (seconds[8]) begin
+            case (seconds[7:4])
+                4'd0: seg_code[6] = SEG_0;
+                4'd1: seg_code[6] = SEG_1;
+                4'd2: seg_code[6] = SEG_2;
+                4'd3: seg_code[6] = SEG_3;
+                4'd4: seg_code[6] = SEG_4;
+                4'd5: seg_code[6] = SEG_5;
+                4'd6: seg_code[6] = SEG_6;
+                4'd7: seg_code[6] = SEG_7;
+                4'd8: seg_code[6] = SEG_8;
+                4'd9: seg_code[6] = SEG_9;
+            endcase
+            case (seconds[3:0])
+                4'd0: seg_code[7] = SEG_0;
+                4'd1: seg_code[7] = SEG_1;
+                4'd2: seg_code[7] = SEG_2;
+                4'd3: seg_code[7] = SEG_3;
+                4'd4: seg_code[7] = SEG_4;
+                4'd5: seg_code[7] = SEG_5;
+                4'd6: seg_code[7] = SEG_6;
+                4'd7: seg_code[7] = SEG_7;
+                4'd8: seg_code[7] = SEG_8;
+                4'd9: seg_code[7] = SEG_9;
             endcase
         end
     end
 
-    assign {tub_sel1, tub_sel2, tub_sel3, tub_sel4, tub_sel5, tub_sel6, tub_sel7, tub_sel8} = seg_en_reg;
-    assign tub_control1 = seg_out_reg1;
-    assign tub_control2 = seg_out_reg2;
+    // -------------------------- 4. 时序逻辑：动态扫描 --------------------------
+    always @(posedge clk_out or posedge reset) begin
+        if (reset) begin
+            scan_count <= 3'b000;
+        end else begin
+            scan_count <= scan_count + 3'b001; // 从0到7循环
+        end
+    end
 
+    // -------------------------- 5. 输出逻辑 --------------------------
+    // 生成位选信号 (高电平有效)
+    assign {tub_sel1, tub_sel2, tub_sel3, tub_sel4, tub_sel5, tub_sel6, tub_sel7, tub_sel8} = ~(1 << scan_count);
+
+    // 根据 scan_count 选择要输出的段码
+    // 假设 tub_control1 控制 [0..3] (sel1-sel4), tub_control2 控制 [4..7] (sel5-sel8)
+    assign tub_control1 = seg_code[scan_count];
+    assign tub_control2 = seg_code[scan_count];
 endmodule
