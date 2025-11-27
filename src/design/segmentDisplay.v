@@ -32,27 +32,27 @@ module segmentDisplay (
     input reset,//复位信号
     input [11:0] menuState, //当前菜单状态 使用10进制BCD码
     input [8:0] seconds, //当前秒数，使用10进制BCD码，范围0-99
-    output tub_sel1, // 从左侧开始编号，控制第1个七段数码管的显示
-    output tub_sel2, // 左侧第2个七段数码管
-    output tub_sel3, // 左侧第3个七段数码管
-    output tub_sel4, // 左侧第4个七段数码管
-    output tub_sel5, // 左侧第5个七段数码管
-    output tub_sel6, // 左侧第6个七段数码管
-    output tub_sel7, // 左侧第7个七段数码管
-    output tub_sel8, // 左侧第8个七段数码管
+    output reg tub_sel1, // 从左侧开始编号，控制第1个七段数码管的显示
+    output reg tub_sel2, // 左侧第2个七段数码管
+    output reg tub_sel3, // 左侧第3个七段数码管
+    output reg tub_sel4, // 左侧第4个七段数码管
+    output reg tub_sel5, // 左侧第5个七段数码管
+    output reg tub_sel6, // 左侧第6个七段数码管
+    output reg tub_sel7, // 左侧第7个七段数码管
+    output reg tub_sel8, // 左侧第8个七段数码管
     output [7:0] tub_control1, // Output: Control the content displayed on the left side
     output [7:0] tub_control2 // Output: Control the content displayed on the right side
 );
-    parameter SEG_0 = 8'b11111100; // 显示"0"：a、b、c、d、e、f亮
-    parameter SEG_1 = 8'b01100000; // 显示"1"：b、c亮
-    parameter SEG_2 = 8'b11011010; // 显示"2"：a、b、d、e、g亮
-    parameter SEG_3 = 8'b11110010; // 显示"3"：a、b、c、d、g亮
+    parameter SEG_0 = 8'b00111111; // 显示"0"：a、b、c、d、e、f亮
+    parameter SEG_1 = 8'b00000110; // 显示"1"：b、c亮
+    parameter SEG_2 = 8'b01011011; // 显示"2"：a、b、d、e、g亮
+    parameter SEG_3 = 8'b01001111; // 显示"3"：a、b、c、d、g亮
     parameter SEG_4 = 8'b01100110; // 显示"4"：b、c、f、g亮
-    parameter SEG_5 = 8'b10110110; // 显示"5"：a、c、d、f、g亮
-    parameter SEG_6 = 8'b10111110; // 显示"6"：a、c、d、e、f、g亮
-    parameter SEG_7 = 8'b11100000; // 显示"7"：a、b、c亮
-    parameter SEG_8 = 8'b11111110; // 显示"8"：a~g全亮
-    parameter SEG_9 = 8'b11100110; // 显示"9"：a、b、c、f、g亮
+    parameter SEG_5 = 8'b01101101; // 显示"5"：a、c、d、f、g亮
+    parameter SEG_6 = 8'b01111101; // 显示"6"：a、c、d、e、f、g亮
+    parameter SEG_7 = 8'b00000111; // 显示"7"：a、b、c亮
+    parameter SEG_8 = 8'b01111111; // 显示"8"：a~g全亮
+    parameter SEG_9 = 8'b01101111; // 显示"9"：a、b、c、d、f、g亮
     parameter SEG_OFF = 8'b00000000;
   // -------------------------- 2. 内部信号定义 --------------------------
     reg [2:0] scan_count;
@@ -118,6 +118,7 @@ module segmentDisplay (
         end
     end
 
+
     // -------------------------- 4. 时序逻辑：动态扫描 --------------------------
     always @(posedge clk_out or posedge reset) begin
         if (reset) begin
@@ -129,7 +130,29 @@ module segmentDisplay (
 
     // -------------------------- 5. 输出逻辑 --------------------------
     // 生成位选信号 (高电平有效)
-    assign {tub_sel1, tub_sel2, tub_sel3, tub_sel4, tub_sel5, tub_sel6, tub_sel7, tub_sel8} = ~(1 << scan_count);
+    always @(*) begin
+    // 步骤1：默认全 0（避免 latch，必须先赋值所有信号）
+    tub_sel1 = 1'b0;
+    tub_sel2 = 1'b0;
+    tub_sel3 = 1'b0;
+    tub_sel4 = 1'b0;
+    tub_sel5 = 1'b0;
+    tub_sel6 = 1'b0;
+    tub_sel7 = 1'b0;
+    tub_sel8 = 1'b0;
+    
+    // 步骤2：根据 scan_count 选择赋值 1
+    case(scan_count)
+        3'd0: tub_sel1 = 1'b1;
+        3'd1: tub_sel2 = 1'b1;
+        3'd2: tub_sel3 = 1'b1;
+        3'd3: tub_sel4 = 1'b1;
+        3'd4: tub_sel5 = 1'b1;
+        3'd5: tub_sel6 = 1'b1;
+        3'd6: tub_sel7 = 1'b1;
+        3'd7: tub_sel8 = 1'b1;
+    endcase
+end
 
     // 根据 scan_count 选择要输出的段码
     // 假设 tub_control1 控制 [0..3] (sel1-sel4), tub_control2 控制 [4..7] (sel5-sel8)

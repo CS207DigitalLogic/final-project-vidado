@@ -76,29 +76,50 @@ always @(posedge clk or posedge reset) begin
 end
 
 // -------------------------- 秒计数器（0~99秒循环） --------------------------
+// 显式声明所有信号（规范写法）
+reg  [3:0]    sec_tens_bcd; // 秒的十位 BCD 码（4位：0000~1001 → 0~9）
+reg  [3:0]    sec_units_bcd;// 秒的个位 BCD 码（4位：0000~1001 → 0~9）
+
+// 异步复位的时序逻辑：50MHz→1秒分频 + BCD码秒递减计数（99~00循环）
 always @(posedge clk or posedge reset) begin
     if (reset) begin
-        sec_cnt <= 32'd0;
-        seconds[7:0] <= 8'd0;
+        // 复位：分频计数器清零，BCD码初始化为 99（可按需改为其他初始值，如 59）
+        sec_cnt        <= 32'd0;
+        sec_tens_bcd   <= 4'd9;  // 十位 BCD 码：9（1001）
+        sec_units_bcd  <= 4'd9;  // 个位 BCD 码：9（1001）
+        seconds[7:0]        <= 8'h99; // 8位 BCD 码：99（1001_1001）
     end else begin
-        if (sec_cnt == 32'd49_999_999) begin // 50MHz计数到5000万-1（1秒）
-            sec_cnt <= 32'd0;
-            if (seconds[7:0] == 8'd99) begin
-                seconds[7:0] <= 8'd0; // 99秒后复位到0
+        if (sec_cnt == 32'd99_999_999) begin // 50MHz 计满1秒
+            sec_cnt <= 32'd0; // 分频计数器清零，重新计数
+            
+            // --------------------------sw_pin
+            // 核心：BCD码秒数递减逻辑（借位+合法BCD保障）
+            // --------------------------
+            if (sec_units_bcd == 4'd0) begin // 个位 BCD 码为0，需向十位借位
+                sec_units_bcd <= 4'd9;      // 个位借位后变为9（合法BCD）
+                if (sec_tens_bcd == 4'd0) begin // 十位也为0（00 BCD）
+                    sec_tens_bcd <= 4'd9;  // 十位借位后变为9（循环回99）
+                end else begin
+                    sec_tens_bcd <= sec_tens_bcd - 4'd1; // 十位减1（合法BCD）
+                end
             end else begin
-                seconds[7:0] <= seconds[7:0] + 8'd1;
+                sec_units_bcd <= sec_units_bcd - 4'd1; // 个位直接减1（合法BCD）
             end
+            
+            // 拼接十位/个位 BCD 码，生成8位 BCD 码 seconds
+            seconds[7:0] <= {sec_tens_bcd, sec_units_bcd};
         end else begin
-            sec_cnt <= sec_cnt + 32'd1;
+            sec_cnt <= sec_cnt + 32'd1; // 未计满1秒，分频计数器累加
         end
     end
 end
-assign seconds[8] = sw_pin[0]; // sw0控制秒显示使能（1=显示，0=不显示）
+
+always@(*) seconds[8] = sw_pin[0]; // sw0控制秒显示使能（1=显示，0=不显示）
 
 // -------------------------- 实例化分频器（segmentDisplay依赖） --------------------------
 divider u_divider(
     .clk(clk),
-    .reset(reset),
+    .rst_n(reset),
     .tiaoPin(tiaoPin),
     .clk_out(clk_out)
 );
