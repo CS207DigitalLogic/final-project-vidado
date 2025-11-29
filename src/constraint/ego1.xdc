@@ -1,5 +1,5 @@
 # -------------------------- 系统时钟与复位约束 --------------------------
-# 系统时钟：50MHz，引脚P17
+# 系统时钟：100MHz，引脚P17
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports sys_clk_in]
 create_clock -period 20.000 -name sys_clk -waveform {0.000 10.000} [get_ports sys_clk_in]
 
@@ -53,3 +53,4 @@ set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports {seg_data_1_p
 set_property -dict {PACKAGE_PIN E2 IOSTANDARD LVCMOS33} [get_ports {seg_data_1_pin[5]}]
 set_property -dict {PACKAGE_PIN D2 IOSTANDARD LVCMOS33} [get_ports {seg_data_1_pin[6]}]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {seg_data_1_pin[7]}]
+
