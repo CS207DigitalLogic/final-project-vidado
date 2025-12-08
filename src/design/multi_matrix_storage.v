@@ -6,7 +6,7 @@ module multi_matrix_storage #(
 )(
     input wire                     rst_n,          // 低有效复位（仅用于初始化）
     // ---------------------------
-    // 组合逻辑写入接口（扁平化设计，无时钟）
+    // 组合逻辑写入接口
     // ---------------------------
     input wire                     wr_en,          // 写使能（1=执行写入，组合逻辑实时响应）
     input wire [MATRIX_IDX_W-1:0]  target_idx,     // 写入目标：全局矩阵索引（0~MATRIX_NUM-1）
