@@ -4,11 +4,12 @@ module multi_matrix_storage #(
     parameter MATRIX_NUM        = 8,        // 全局最大矩阵数量
     parameter MAX_MATRIX_PER_SIZE = 4       // 每个规模最多存储矩阵数
 )(
+    input wire                     clk,            // 时钟信号（时序写入触发）
     input wire                     rst_n,          // 低有效复位（仅用于初始化）
     // ---------------------------
-    // 组合逻辑写入接口
+    // 时序逻辑写入接口（wr_en为时钟使能）
     // ---------------------------
-    input wire                     wr_en,          // 写使能（1=执行写入，组合逻辑实时响应）
+    input wire                     wr_en,          // 写使能（1=时钟上升沿执行写入）
     input wire [MATRIX_IDX_W-1:0]  target_idx,     // 写入目标：全局矩阵索引（0~MATRIX_NUM-1）
     input wire [2:0]               write_row,      // 写入矩阵的行数（1~MAX_SIZE）
     input wire [2:0]               write_col,      // 写入矩阵的列数（1~MAX_SIZE）
@@ -106,23 +107,32 @@ reg [SEL_IDX_W-1:0] size_cnt [1:MAX_SIZE] [1:MAX_SIZE];  // 每个规模的矩�
 reg [0:MATRIX_NUM-1] matrix_init_flag;  // 矩阵初始化标记
 
 // ---------------------------
-// 内部临时变量（所有变量均在外部声明，无变化）
+// 内部临时变量（关键修改：新增组合逻辑预处理变量）
 // ---------------------------
-// 写入逻辑相关
-reg [2:0] r_store, c_store;                          // 有效存储规模（行/列）
-reg [MATRIX_IDX_W-1:0] valid_target_idx;             // 有效目标索引（边界保护）
-reg [SEL_IDX_W-1:0] curr_cnt;                        // 同规模当前计数
+// 组合逻辑预处理变量（写入输入的边界保护）
+wire [2:0]               r_store_comb;       // 组合逻辑计算的有效存储行规模
+wire [2:0]               c_store_comb;       // 组合逻辑计算的有效存储列规模
+wire [MATRIX_IDX_W-1:0]  valid_target_idx_comb; // 组合逻辑计算的有效目标索引
+wire [SEL_IDX_W-1:0]     curr_cnt_comb;      // 组合逻辑计算的当前规模计数
 
-// 查询输出相关
+// 查询输出相关（无修改）
 reg [2:0] valid_scale_r, valid_scale_c;               // 有效查询规模
 reg [MATRIX_IDX_W-1:0] target_global_idx;             // 目标矩阵全局索引
 reg [SEL_IDX_W-1:0] valid_req_idx;                   // 有效查询序号
 
 // ---------------------------
-// 1. 复位初始化（时序逻辑，仅复位时执行，无变化）
+// 关键修改1：组合逻辑预处理写入输入（避免时序块内旧值问题）
+// ---------------------------
+assign valid_target_idx_comb = (target_idx < MATRIX_NUM) ? target_idx : {MATRIX_IDX_W{1'b0}};
+assign r_store_comb = (write_row >= 1 && write_row <= MAX_SIZE) ? write_row : 1'd1;
+assign c_store_comb = (write_col >= 1 && write_col <= MAX_SIZE) ? write_col : 1'd1;
+assign curr_cnt_comb = size_cnt[r_store_comb][c_store_comb]; // 直接取当前规模的最新计数
+
+// ---------------------------
+// 1. 复位初始化 + 时序写入逻辑（异步复位，时钟触发写入）
 // ---------------------------
 integer m, d, r, c, s, gg;
-always @(posedge rst_n or negedge rst_n) begin  // 异步复位，确保初始化可靠
+always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         // 1.1 全局存储初始化（所有元素清0）
         for (m = 0; m < MATRIX_NUM; m = m + 1) begin
@@ -147,7 +157,7 @@ always @(posedge rst_n or negedge rst_n) begin  // 异步复位，确保初始�
                 end
             end
         end
-
+/*
         // 1.4 预存矩阵初始化（示例数据，含负数补码）
         // 预存2x3矩阵0（全局索引0）
         mem[0][0] <= 8'h01; mem[0][1] <= 8'h02; mem[0][2] <= 8'hFB;
@@ -169,7 +179,9 @@ always @(posedge rst_n or negedge rst_n) begin  // 异步复位，确保初始�
 
         // 预存3x4矩阵（全局索引3）
         for (gg = 0; gg < 12; gg = gg + 1) begin
-            mem[3][gg] <= 8'h31 + gg;
+            if (gg < MEM_DEPTH_PER_MATRIX) begin // 新增越界保护
+                mem[3][gg] <= 8'h31 + gg;
+            end
         end
         row_self[3] <= 3'd3; col_self[3] <= 3'd4;
         matrix_init_flag[3] <= 1'b1;
@@ -182,111 +194,60 @@ always @(posedge rst_n or negedge rst_n) begin  // 异步复位，确保初始�
 
         size2matrix[3][4][0] <= 3'd3;
         size_cnt[3][4] <= 3'd1;
-    end
-end
-
-// ---------------------------
-// 2. 核心组合逻辑写入（无时钟，wr_en有效即执行）
-// ---------------------------
-always @(*) begin
-    // ---------------------------
-    // 2.1 输入边界保护（避免无效写入）
-    // ---------------------------
-    // 有效目标索引：超出范围则默认0
-    valid_target_idx = (target_idx < MATRIX_NUM) ? target_idx : {MATRIX_IDX_W{1'b0}};
-    // 有效存储规模：超出1~MAX_SIZE则默认1x1
-    r_store = (write_row >= 1 && write_row <= MAX_SIZE) ? write_row : 1'd1;
-    c_store = (write_col >= 1 && write_col <= MAX_SIZE) ? write_col : 1'd1;
-    // 当前规模的矩阵计数
-    curr_cnt = size_cnt[r_store][c_store];
-
-    // ---------------------------
-    // 2.2 组合逻辑写入（wr_en有效时执行，否则保持原状态）
-    // ---------------------------
-    if (wr_en) begin
-        // 2.2.1 写入25个矩阵元素（直接映射地址0~24，无地址输入）
-        mem[valid_target_idx][0]  = data_in_0;
-        mem[valid_target_idx][1]  = data_in_1;
-        mem[valid_target_idx][2]  = data_in_2;
-        mem[valid_target_idx][3]  = data_in_3;
-        mem[valid_target_idx][4]  = data_in_4;
-        mem[valid_target_idx][5]  = data_in_5;
-        mem[valid_target_idx][6]  = data_in_6;
-        mem[valid_target_idx][7]  = data_in_7;
-        mem[valid_target_idx][8]  = data_in_8;
-        mem[valid_target_idx][9]  = data_in_9;
-        mem[valid_target_idx][10] = data_in_10;
-        mem[valid_target_idx][11] = data_in_11;
-        mem[valid_target_idx][12] = data_in_12;
-        mem[valid_target_idx][13] = data_in_13;
-        mem[valid_target_idx][14] = data_in_14;
-        mem[valid_target_idx][15] = data_in_15;
-        mem[valid_target_idx][16] = data_in_16;
-        mem[valid_target_idx][17] = data_in_17;
-        mem[valid_target_idx][18] = data_in_18;
-        mem[valid_target_idx][19] = data_in_19;
-        mem[valid_target_idx][20] = data_in_20;
-        mem[valid_target_idx][21] = data_in_21;
-        mem[valid_target_idx][22] = data_in_22;
-        mem[valid_target_idx][23] = data_in_23;
-        mem[valid_target_idx][24] = data_in_24;
-
-        // 2.2.2 更新矩阵实际行/列数
-        row_self[valid_target_idx] = r_store;
-        col_self[valid_target_idx] = c_store;
-
-        // 2.2.3 初始化标记与规模映射表更新（仅首次写入时执行）
-        if (!matrix_init_flag[valid_target_idx] && (curr_cnt < MAX_MATRIX_PER_SIZE)) begin
-            // 新增矩阵到规模映射表
-            size2matrix[r_store][c_store][curr_cnt] = valid_target_idx;
-            // 递增当前规模的矩阵计数
-            size_cnt[r_store][c_store] = curr_cnt + 1'd1;
-            // 标记矩阵已初始化
-            matrix_init_flag[valid_target_idx] = 1'b1;
-        end else begin
-            // 非首次写入：保持映射表和计数不变，仅更新数据和规模
-            size2matrix[r_store][c_store][curr_cnt] = size2matrix[r_store][c_store][curr_cnt];
-            size_cnt[r_store][c_store] = curr_cnt;
-            matrix_init_flag[valid_target_idx] = matrix_init_flag[valid_target_idx];
-        end
+        */
     end else begin
-        // 2.2.4 写使能无效：所有内部数组保持原状态（无latch）
-        mem[valid_target_idx][0]  = mem[valid_target_idx][0];
-        mem[valid_target_idx][1]  = mem[valid_target_idx][1];
-        mem[valid_target_idx][2]  = mem[valid_target_idx][2];
-        mem[valid_target_idx][3]  = mem[valid_target_idx][3];
-        mem[valid_target_idx][4]  = mem[valid_target_idx][4];
-        mem[valid_target_idx][5]  = mem[valid_target_idx][5];
-        mem[valid_target_idx][6]  = mem[valid_target_idx][6];
-        mem[valid_target_idx][7]  = mem[valid_target_idx][7];
-        mem[valid_target_idx][8]  = mem[valid_target_idx][8];
-        mem[valid_target_idx][9]  = mem[valid_target_idx][9];
-        mem[valid_target_idx][10] = mem[valid_target_idx][10];
-        mem[valid_target_idx][11] = mem[valid_target_idx][11];
-        mem[valid_target_idx][12] = mem[valid_target_idx][12];
-        mem[valid_target_idx][13] = mem[valid_target_idx][13];
-        mem[valid_target_idx][14] = mem[valid_target_idx][14];
-        mem[valid_target_idx][15] = mem[valid_target_idx][15];
-        mem[valid_target_idx][16] = mem[valid_target_idx][16];
-        mem[valid_target_idx][17] = mem[valid_target_idx][17];
-        mem[valid_target_idx][18] = mem[valid_target_idx][18];
-        mem[valid_target_idx][19] = mem[valid_target_idx][19];
-        mem[valid_target_idx][20] = mem[valid_target_idx][20];
-        mem[valid_target_idx][21] = mem[valid_target_idx][21];
-        mem[valid_target_idx][22] = mem[valid_target_idx][22];
-        mem[valid_target_idx][23] = mem[valid_target_idx][23];
-        mem[valid_target_idx][24] = mem[valid_target_idx][24];
+        // ---------------------------
+        // 2. 时序写入逻辑（仅wr_en有效时执行）
+        // ---------------------------
+        if (wr_en) begin
+            // 2.1 写入25个矩阵元素（使用组合逻辑预处理的有效索引）
+            mem[valid_target_idx_comb][0]  <= data_in_0;
+            mem[valid_target_idx_comb][1]  <= data_in_1;
+            mem[valid_target_idx_comb][2]  <= data_in_2;
+            mem[valid_target_idx_comb][3]  <= data_in_3;
+            mem[valid_target_idx_comb][4]  <= data_in_4;
+            mem[valid_target_idx_comb][5]  <= data_in_5;
+            mem[valid_target_idx_comb][6]  <= data_in_6;
+            mem[valid_target_idx_comb][7]  <= data_in_7;
+            mem[valid_target_idx_comb][8]  <= data_in_8;
+            mem[valid_target_idx_comb][9]  <= data_in_9;
+            mem[valid_target_idx_comb][10] <= data_in_10;
+            mem[valid_target_idx_comb][11] <= data_in_11;
+            mem[valid_target_idx_comb][12] <= data_in_12;
+            mem[valid_target_idx_comb][13] <= data_in_13;
+            mem[valid_target_idx_comb][14] <= data_in_14;
+            mem[valid_target_idx_comb][15] <= data_in_15;
+            mem[valid_target_idx_comb][16] <= data_in_16;
+            mem[valid_target_idx_comb][17] <= data_in_17;
+            mem[valid_target_idx_comb][18] <= data_in_18;
+            mem[valid_target_idx_comb][19] <= data_in_19;
+            mem[valid_target_idx_comb][20] <= data_in_20;
+            mem[valid_target_idx_comb][21] <= data_in_21;
+            mem[valid_target_idx_comb][22] <= data_in_22;
+            mem[valid_target_idx_comb][23] <= data_in_23;
+            mem[valid_target_idx_comb][24] <= data_in_24;
 
-        row_self[valid_target_idx] = row_self[valid_target_idx];
-        col_self[valid_target_idx] = col_self[valid_target_idx];
-        size2matrix[r_store][c_store][curr_cnt] = size2matrix[r_store][c_store][curr_cnt];
-        size_cnt[r_store][c_store] = curr_cnt;
-        matrix_init_flag[valid_target_idx] = matrix_init_flag[valid_target_idx];
+            // 2.2 更新矩阵实际行/列数（使用组合逻辑预处理的有效规模）
+            row_self[valid_target_idx_comb] <= r_store_comb;
+            col_self[valid_target_idx_comb] <= c_store_comb;
+
+            // 2.3 初始化标记与规模映射表更新（仅首次写入时执行）
+            // 关键修复：curr_cnt_comb是组合逻辑计算的当前规模最新计数
+            if (!matrix_init_flag[valid_target_idx_comb] && (curr_cnt_comb < MAX_MATRIX_PER_SIZE)) begin
+                size2matrix[r_store_comb][c_store_comb][curr_cnt_comb] <= valid_target_idx_comb;
+                size_cnt[r_store_comb][c_store_comb] <= curr_cnt_comb + 1'd1;
+                matrix_init_flag[valid_target_idx_comb] <= 1'b1;
+            end
+            // 新增：越界保护（避免size2matrix索引超出范围）
+            else if (!matrix_init_flag[valid_target_idx_comb] && (curr_cnt_comb >= MAX_MATRIX_PER_SIZE)) begin
+            end
+        end
+        // wr_en无效时，所有寄存器保持原值（时序逻辑天然特性）
     end
 end
 
 // ---------------------------
-// 3. 核心查询输出逻辑（组合逻辑，与之前一致，无变化）
+// 3. 核心查询输出逻辑（与原逻辑一致，无变化）
 // ---------------------------
 always @(*) begin
     // 3.1 输入边界保护
