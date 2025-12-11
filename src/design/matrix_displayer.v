@@ -4,52 +4,52 @@ module matrix_displayer(
     input wire clk,
     input wire rst_n,
     
-    // ¿ØÖÆĞÅºÅ
-    input wire start,           // ¿ªÊ¼ÏÔÊ¾µÄÂö³å
-    output reg busy,            // Ä£¿éÃ¦ĞÅºÅ
+    // æ§åˆ¶ä¿¡å·
+    input wire start,           // å¼€å§‹æ˜¾ç¤ºçš„è„‰å†²
+    output reg busy,            // æ¨¡å—å¿™ä¿¡å·
     
-    // ¾ØÕó²ÎÊıÊäÈë
-    input wire [2:0] matrix_row, // ¾ØÕóĞĞÊı
-    input wire [2:0] matrix_col, // ¾ØÕóÁĞÊı
+    // çŸ©é˜µå‚æ•°è¾“å…¥
+    input wire [2:0] matrix_row, // çŸ©é˜µè¡Œæ•°
+    input wire [2:0] matrix_col, // çŸ©é˜µåˆ—æ•°
     
-    // À´×Ô Storage µÄ 25 ¸öÊı¾İ
+    // æ¥è‡ª Storage çš„ 25 ä¸ªæ•°æ®
     input wire [7:0] d0,  input wire [7:0] d1,  input wire [7:0] d2,  input wire [7:0] d3,  input wire [7:0] d4,
     input wire [7:0] d5,  input wire [7:0] d6,  input wire [7:0] d7,  input wire [7:0] d8,  input wire [7:0] d9,
     input wire [7:0] d10, input wire [7:0] d11, input wire [7:0] d12, input wire [7:0] d13, input wire [7:0] d14,
     input wire [7:0] d15, input wire [7:0] d16, input wire [7:0] d17, input wire [7:0] d18, input wire [7:0] d19,
     input wire [7:0] d20, input wire [7:0] d21, input wire [7:0] d22, input wire [7:0] d23, input wire [7:0] d24,
 
-    // UART TX ½Ó¿Ú
+    // UART TX æ¥å£
     output reg [7:0] tx_data,
     output reg       tx_start,
     input  wire      tx_busy
 );
 
-    // ×´Ì¬»ú¶¨Òå
+    // çŠ¶æ€æœºå®šä¹‰
     localparam S_IDLE       = 0;
-    localparam S_PREPARE    = 1; // Ëø´æÊı¾İ
-    localparam S_SEND_DIGIT = 2; // ·¢ËÍÊı×Ö
-    localparam S_WAIT_DIGIT = 3; // µÈ´ıÊı×Ö·¢Íê
-    localparam S_SEND_SEP   = 4; // ·¢ËÍ·Ö¸ô·û(¿Õ¸ñ»ò»»ĞĞ)
-    localparam S_WAIT_SEP   = 5; // µÈ´ı·Ö¸ô·û·¢Íê
+    localparam S_PREPARE    = 1; // é”å­˜æ•°æ®
+    localparam S_SEND_DIGIT = 2; // å‘é€æ•°å­—
+    localparam S_WAIT_DIGIT = 3; // ç­‰å¾…æ•°å­—å‘å®Œ
+    localparam S_SEND_SEP   = 4; // å‘é€åˆ†éš”ç¬¦(ç©ºæ ¼æˆ–æ¢è¡Œ)
+    localparam S_WAIT_SEP   = 5; // ç­‰å¾…åˆ†éš”ç¬¦å‘å®Œ
     localparam S_DONE       = 6;
 
     reg [3:0] state;
-    reg [2:0] r_cnt; // ĞĞ¼ÆÊı
-    reg [2:0] c_cnt; // ÁĞ¼ÆÊı
+    reg [2:0] r_cnt; // è¡Œè®¡æ•°
+    reg [2:0] c_cnt; // åˆ—è®¡æ•°
     
-    // ÄÚ²¿Êı¾İ»º´æ£¨·ÀÖ¹ÏÔÊ¾¹ı³ÌÖĞ storage ±äÁË£©
+    // å†…éƒ¨æ•°æ®ç¼“å­˜ï¼ˆé˜²æ­¢æ˜¾ç¤ºè¿‡ç¨‹ä¸­ storage å˜äº†ï¼‰
     reg [7:0] data_cache [24:0]; 
     reg [7:0] current_val;
 
-    // Êı¾İÑ¡ÔñÂß¼­£º¸ù¾İ (r, c) Ñ¡³ö¶ÔÓ¦µÄÊı¾İ
+    // æ•°æ®é€‰æ‹©é€»è¾‘ï¼šæ ¹æ® (r, c) é€‰å‡ºå¯¹åº”çš„æ•°æ®
     wire [4:0] current_index = r_cnt * matrix_col + c_cnt;
 
-    // ÕûÊı×ªASCII
+    // æ•´æ•°è½¬ASCII
     function [7:0] int2ascii;
         input [7:0] val;
         begin
-            int2ascii = val + "0"; // ¼òµ¥´¦Àí0-9£¬Èç¹ûÖ§³ÖÁ½Î»ÊıĞèÒª¸ü¸´ÔÓÂß¼­
+            int2ascii = val + "0"; // ç®€å•å¤„ç†0-9ï¼Œå¦‚æœæ”¯æŒä¸¤ä½æ•°éœ€è¦æ›´å¤æ‚é€»è¾‘
         end
     endfunction
 
@@ -62,7 +62,7 @@ module matrix_displayer(
             r_cnt <= 0;
             c_cnt <= 0;
         end else begin
-            // Ä¬ÈÏÀ­µÍ Start
+            // é»˜è®¤æ‹‰ä½ Start
             tx_start <= 0;
 
             case (state)
@@ -75,7 +75,7 @@ module matrix_displayer(
                 end
 
                 S_PREPARE: begin
-                    // ½«ÊäÈë¶Ë¿ÚµÄÊı¾İËø´æµ½ÄÚ²¿»º´æ£¬±£Ö¤ÏÔÊ¾Ê±Êı¾İÎÈ¶¨
+                    // å°†è¾“å…¥ç«¯å£çš„æ•°æ®é”å­˜åˆ°å†…éƒ¨ç¼“å­˜ï¼Œä¿è¯æ˜¾ç¤ºæ—¶æ•°æ®ç¨³å®š
                     data_cache[0]<=d0;   data_cache[1]<=d1;   data_cache[2]<=d2;   data_cache[3]<=d3;   data_cache[4]<=d4;
                     data_cache[5]<=d5;   data_cache[6]<=d6;   data_cache[7]<=d7;   data_cache[8]<=d8;   data_cache[9]<=d9;
                     data_cache[10]<=d10; data_cache[11]<=d11; data_cache[12]<=d12; data_cache[13]<=d13; data_cache[14]<=d14;
@@ -89,7 +89,7 @@ module matrix_displayer(
 
                 S_SEND_DIGIT: begin
                     if (!tx_busy) begin
-                        // 1. È¡³öµ±Ç°Êı×Ö²¢×ªASCII
+                        // 1. å–å‡ºå½“å‰æ•°å­—å¹¶è½¬ASCII
                         current_val = data_cache[current_index];
                         tx_data <= int2ascii(current_val);
                         tx_start <= 1;
@@ -98,20 +98,20 @@ module matrix_displayer(
                 end
 
                 S_WAIT_DIGIT: begin
-                    // µÈ´ı´®¿ÚÃ¦ÂµÆğÀ´£¬»òÕß·¢ËÍÍê³É
-                    // Ò»°ãÕâÀïÖ»Òª·¢ÁËstart£¬ÏÂÒ»ÖÜÆÚtx_busy¾Í»á±ä¸ß£¬»òÕßÎÒÃÇ¿ÉÒÔ¼òµ¥¸øµãÑÓÊ±
-                    // ÕâÀï²ÉÓÃ¼òµ¥µÄ×´Ì¬Ìø×ª£¬ÒòÎª tx_busy Âß¼­Í¨³£ÊÇÁ¢¿ÌÏìÓ¦
+                    // ç­‰å¾…ä¸²å£å¿™ç¢Œèµ·æ¥ï¼Œæˆ–è€…å‘é€å®Œæˆ
+                    // ä¸€èˆ¬è¿™é‡Œåªè¦å‘äº†startï¼Œä¸‹ä¸€å‘¨æœŸtx_busyå°±ä¼šå˜é«˜ï¼Œæˆ–è€…æˆ‘ä»¬å¯ä»¥ç®€å•ç»™ç‚¹å»¶æ—¶
+                    // è¿™é‡Œé‡‡ç”¨ç®€å•çš„çŠ¶æ€è·³è½¬ï¼Œå› ä¸º tx_busy é€»è¾‘é€šå¸¸æ˜¯ç«‹åˆ»å“åº”
                     state <= S_SEND_SEP;
                 end
 
                 S_SEND_SEP: begin
                     if (!tx_busy) begin
-                        // ÅĞ¶ÏÊÇĞĞÄ©»¹ÊÇÖĞ¼ä
+                        // åˆ¤æ–­æ˜¯è¡Œæœ«è¿˜æ˜¯ä¸­é—´
                         if (c_cnt == matrix_col - 1) begin
-                            tx_data <= 8'h0A; // »»ĞĞ (Line Feed)
-                            // Ä³Ğ©ÖÕ¶Ë¿ÉÄÜĞèÒª 0D 0A£¬ÕâÀï¼ò»¯Îª \n
+                            tx_data <= 8'h0A; // æ¢è¡Œ (Line Feed)
+                            // æŸäº›ç»ˆç«¯å¯èƒ½éœ€è¦ 0D 0Aï¼Œè¿™é‡Œç®€åŒ–ä¸º \n
                         end else begin
-                            tx_data <= 8'h20; // ¿Õ¸ñ
+                            tx_data <= 8'h20; // ç©ºæ ¼
                         end
                         tx_start <= 1;
                         state <= S_WAIT_SEP;
@@ -119,8 +119,8 @@ module matrix_displayer(
                 end
 
                 S_WAIT_SEP: begin
-                    if (!tx_busy) begin // µÈ´ı·Ö¸ô·û·¢Íê
-                        // ¸üĞÂ¼ÆÊıÆ÷
+                    if (!tx_busy) begin // ç­‰å¾…åˆ†éš”ç¬¦å‘å®Œ
+                        // æ›´æ–°è®¡æ•°å™¨
                         if (c_cnt == matrix_col - 1) begin
                             c_cnt <= 0;
                             if (r_cnt == matrix_row - 1) begin
