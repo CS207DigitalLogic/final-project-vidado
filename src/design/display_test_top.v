@@ -12,7 +12,7 @@ module display_test_top(
     parameter BAUD_RATE = 115200;
 
     // ============================================
-    // ĞÅºÅ¶¨Òå
+    // ä¿¡å·å®šä¹‰
     // ============================================
     
     // UART RX
@@ -29,17 +29,17 @@ module display_test_top(
     wire [2:0]  wr_idx;
     wire [2:0]  wr_row;
     wire [2:0]  wr_col;
-    wire [7:0]  w_data[24:0]; // Ğ´Êı¾İÁ¬Ïß
+    wire [7:0]  w_data[24:0]; // å†™æ•°æ®è¿çº¿
 
-    wire [7:0]  r_data[24:0]; // ¶ÁÊı¾İÁ¬Ïß
+    wire [7:0]  r_data[24:0]; // è¯»æ•°æ®è¿çº¿
     
     // Control
-    wire        save_done; // RX Handler Íê³ÉĞÅºÅ
+    wire        save_done; // RX Handler å®Œæˆä¿¡å·
 
-    assign led = rx_data; // LED ÉÁË¸Ö¸Ê¾
+    assign led = rx_data; // LED é—ªçƒæŒ‡ç¤º
 
     // ============================================
-    // 1. UART RX Ä£¿é
+    // 1. UART RX æ¨¡å—
     // ============================================
     uart_rx #(
         .CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)
@@ -51,13 +51,13 @@ module display_test_top(
     );
 
     // ============================================
-    // 2. Matrix RX Handler (½ÓÊÕ²¢½âÎö)
+    // 2. Matrix RX Handler (æ¥æ”¶å¹¶è§£æ)
     // ============================================
     matrix_rx_handler u_handler (
         .clk(clk), .rst_n(rst_n),
         .rx_data(rx_data), .rx_done(rx_done),
         
-        // Êä³öµ½ Storage µÄĞ´½Ó¿Ú
+        // è¾“å‡ºåˆ° Storage çš„å†™æ¥å£
         .storage_wr_en(wr_en),
         .storage_target_idx(wr_idx),
         .storage_row(wr_row),
@@ -77,12 +77,12 @@ module display_test_top(
     );
 
     // ============================================
-    // 3. Multi Matrix Storage (ÄãµÄ´æ´¢Ä£¿é)
+    // 3. Multi Matrix Storage (ä½ çš„å­˜å‚¨æ¨¡å—)
     // ============================================
-    // ×¢Òâ£º¸ù¾İÄãµÄÎÄ¼ş£¬Multi Matrix Storage »á¸ù¾İ target_idx Ğ´Èë
-    // ¶Á³öÊ±£¬ÎÒÃÇĞèÒª¸æËßËü¶ÁÄÄÒ»¸ö¡£ÕâÀïÎªÁË²âÊÔ£¬ÎÒÃÇÄ¬ÈÏ¶ÁµÚ0¸ö (idx=0)
-    // ÄãµÄ storage Ä£¿éÊä³öÊÇ matrix_data_X »¹ÊÇÖ±½Ó data_out ×é£¿
-    // ¼ÙÉèÄãµÄ Storage Ä£¿éÊµÀı»¯ÈçÏÂ (ĞèÆ¥ÅäÄãÉÏ´«µÄÎÄ¼ş¶Ë¿Ú):
+    // æ³¨æ„ï¼šæ ¹æ®ä½ çš„æ–‡ä»¶ï¼ŒMulti Matrix Storage ä¼šæ ¹æ® target_idx å†™å…¥
+    // è¯»å‡ºæ—¶ï¼Œæˆ‘ä»¬éœ€è¦å‘Šè¯‰å®ƒè¯»å“ªä¸€ä¸ªã€‚è¿™é‡Œä¸ºäº†æµ‹è¯•ï¼Œæˆ‘ä»¬é»˜è®¤è¯»ç¬¬0ä¸ª (idx=0)
+    // ä½ çš„ storage æ¨¡å—è¾“å‡ºæ˜¯ matrix_data_X è¿˜æ˜¯ç›´æ¥ data_out ç»„ï¼Ÿ
+    // å‡è®¾ä½ çš„ Storage æ¨¡å—å®ä¾‹åŒ–å¦‚ä¸‹ (éœ€åŒ¹é…ä½ ä¸Šä¼ çš„æ–‡ä»¶ç«¯å£):
     
     multi_matrix_storage #(
         .DATA_WIDTH(8)
@@ -90,9 +90,9 @@ module display_test_top(
         .clk(clk),
         .rst_n(rst_n),
         
-        // Ğ´Èë¶Ë¿Ú
+        // å†™å…¥ç«¯å£
         .wr_en(wr_en),
-        .target_idx(wr_idx), // À´×Ô RX Handler
+        .target_idx(wr_idx), // æ¥è‡ª RX Handler
         .write_row(wr_row),
         .write_col(wr_col),
         .data_in_0(w_data[0]), .data_in_1(w_data[1]), .data_in_2(w_data[2]), .data_in_3(w_data[3]), .data_in_4(w_data[4]),
@@ -101,10 +101,10 @@ module display_test_top(
         .data_in_15(w_data[15]),.data_in_16(w_data[16]),.data_in_17(w_data[17]),.data_in_18(w_data[18]),.data_in_19(w_data[19]),
         .data_in_20(w_data[20]),.data_in_21(w_data[21]),.data_in_22(w_data[22]),.data_in_23(w_data[23]),.data_in_24(w_data[24]),
         
-        // ¶ÁÈ¡¶Ë¿Ú (¸ù¾İÄãµÄÄ£¿é¶¨Òå£¬ÕâÀï¿ÉÄÜĞèÒª req_idx)
-        // ¼ÙÉèÎÒÃÇ×ÜÊÇ¶ÁÈ¡¸ÕĞ´ÈëµÄ index (ÕâÀï RX Handler Ä¬ÈÏĞ´µÄÊÇ 0)
+        // è¯»å–ç«¯å£ (æ ¹æ®ä½ çš„æ¨¡å—å®šä¹‰ï¼Œè¿™é‡Œå¯èƒ½éœ€è¦ req_idx)
+        // å‡è®¾æˆ‘ä»¬æ€»æ˜¯è¯»å–åˆšå†™å…¥çš„ index (è¿™é‡Œ RX Handler é»˜è®¤å†™çš„æ˜¯ 0)
         .req_idx(3'd0), 
-        // ÏÂÃæÊÇÊä³öÊı¾İ£¬Á¬½Óµ½ Displayer
+        // ä¸‹é¢æ˜¯è¾“å‡ºæ•°æ®ï¼Œè¿æ¥åˆ° Displayer
         .matrix_data_0(r_data[0]), .matrix_data_1(r_data[1]), .matrix_data_2(r_data[2]), .matrix_data_3(r_data[3]), .matrix_data_4(r_data[4]),
         .matrix_data_5(r_data[5]), .matrix_data_6(r_data[6]), .matrix_data_7(r_data[7]), .matrix_data_8(r_data[8]), .matrix_data_9(r_data[9]),
         .matrix_data_10(r_data[10]),.matrix_data_11(r_data[11]),.matrix_data_12(r_data[12]),.matrix_data_13(r_data[13]),.matrix_data_14(r_data[14]),
@@ -113,18 +113,18 @@ module display_test_top(
     );
 
     // ============================================
-    // 4. Matrix Displayer (ÏÔÊ¾Ä£¿é)
+    // 4. Matrix Displayer (æ˜¾ç¤ºæ¨¡å—)
     // ============================================
     matrix_displayer u_displayer (
         .clk(clk), .rst_n(rst_n),
-        .start(save_done), // µ±´æ´¢Ğ´ÈëÍê³Éºó£¬Á¢¼´´¥·¢ÏÔÊ¾
-        .busy(),           // ÔİÊ±²»ÓÃ
+        .start(save_done), // å½“å­˜å‚¨å†™å…¥å®Œæˆåï¼Œç«‹å³è§¦å‘æ˜¾ç¤º
+        .busy(),           // æš‚æ—¶ä¸ç”¨
         
-        // Î¬¶ÈĞÅÏ¢£ºÖ±½ÓÊ¹ÓÃ¸Õ²ÅĞ´ÈëµÄÎ¬¶È
+        // ç»´åº¦ä¿¡æ¯ï¼šç›´æ¥ä½¿ç”¨åˆšæ‰å†™å…¥çš„ç»´åº¦
         .matrix_row(wr_row),
         .matrix_col(wr_col),
         
-        // Êı¾İÊäÈë£ºÀ´×Ô Storage µÄ¶Á³öÊı¾İ
+        // æ•°æ®è¾“å…¥ï¼šæ¥è‡ª Storage çš„è¯»å‡ºæ•°æ®
         .d0(r_data[0]), .d1(r_data[1]), .d2(r_data[2]), .d3(r_data[3]), .d4(r_data[4]),
         .d5(r_data[5]), .d6(r_data[6]), .d7(r_data[7]), .d8(r_data[8]), .d9(r_data[9]),
         .d10(r_data[10]),.d11(r_data[11]),.d12(r_data[12]),.d13(r_data[13]),.d14(r_data[14]),
@@ -137,7 +137,7 @@ module display_test_top(
     );
 
     // ============================================
-    // 5. UART TX Ä£¿é
+    // 5. UART TX æ¨¡å—
     // ============================================
     uart_tx #(
         .CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)

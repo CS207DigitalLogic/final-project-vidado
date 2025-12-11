@@ -4,17 +4,17 @@ module matrix_rx_handler(
     input wire clk,
     input wire rst_n,
 
-    // UART RX ½Ó¿Ú
+    // UART RX æ¥å£
     input wire [7:0] rx_data,
     input wire rx_done,
 
-    // Storage Ğ´Èë½Ó¿Ú
+    // Storage å†™å…¥æ¥å£
     output reg        storage_wr_en,
     output reg [2:0]  storage_target_idx, 
     output reg [2:0]  storage_row,
     output reg [2:0]  storage_col,
     
-    // 25¸ö±âÆ½»¯Êı¾İÊä³ö£¬Á¬½Óµ½ storage
+    // 25ä¸ªæ‰å¹³åŒ–æ•°æ®è¾“å‡ºï¼Œè¿æ¥åˆ° storage
     output wire [7:0] data_flat_0,  output wire [7:0] data_flat_1,  output wire [7:0] data_flat_2,
     output wire [7:0] data_flat_3,  output wire [7:0] data_flat_4,  output wire [7:0] data_flat_5,
     output wire [7:0] data_flat_6,  output wire [7:0] data_flat_7,  output wire [7:0] data_flat_8,
@@ -25,11 +25,11 @@ module matrix_rx_handler(
     output wire [7:0] data_flat_21, output wire [7:0] data_flat_22, output wire [7:0] data_flat_23,
     output wire [7:0] data_flat_24,
     
-    // ¿ØÖÆĞÅºÅ£ºÍ¨Öª¶¥²ã½ÓÊÕ²¢±£´æÍê±Ï
+    // æ§åˆ¶ä¿¡å·ï¼šé€šçŸ¥é¡¶å±‚æ¥æ”¶å¹¶ä¿å­˜å®Œæ¯•
     output reg save_done_pulse
 );
 
-    // ×´Ì¬»ú
+    // çŠ¶æ€æœº
     localparam S_IDLE      = 0;
     localparam S_WAIT_ROW  = 1;
     localparam S_WAIT_COL  = 2;
@@ -40,7 +40,7 @@ module matrix_rx_handler(
     reg [7:0] matrix_buffer [24:0];
     reg [4:0] data_cnt;
 
-    // Buffer Ó³Éäµ½Êä³ö
+    // Buffer æ˜ å°„åˆ°è¾“å‡º
     assign data_flat_0 = matrix_buffer[0];   assign data_flat_1 = matrix_buffer[1];
     assign data_flat_2 = matrix_buffer[2];   assign data_flat_3 = matrix_buffer[3];
     assign data_flat_4 = matrix_buffer[4];   assign data_flat_5 = matrix_buffer[5];
@@ -77,7 +77,7 @@ module matrix_rx_handler(
 
             case (state)
                 S_IDLE: begin
-                    // ½ÓÊÕµÚ1¸öÊı×Ö£ºĞĞÊı
+                    // æ¥æ”¶ç¬¬1ä¸ªæ•°å­—ï¼šè¡Œæ•°
                     if (rx_done && is_digit(rx_data)) begin
                         storage_row <= rx_data - "0";
                         state <= S_WAIT_COL;
@@ -85,7 +85,7 @@ module matrix_rx_handler(
                 end
                 
                 S_WAIT_COL: begin
-                    // ½ÓÊÕµÚ2¸öÊı×Ö£ºÁĞÊı
+                    // æ¥æ”¶ç¬¬2ä¸ªæ•°å­—ï¼šåˆ—æ•°
                     if (rx_done && is_digit(rx_data)) begin
                         storage_col <= rx_data - "0";
                         data_cnt <= 0;
@@ -94,7 +94,7 @@ module matrix_rx_handler(
                 end
 
                 S_WAIT_DATA: begin
-                    // ½ÓÊÕ¾ØÕó¾ßÌåÄÚÈİ
+                    // æ¥æ”¶çŸ©é˜µå…·ä½“å†…å®¹
                     if (rx_done && is_digit(rx_data)) begin
                         matrix_buffer[data_cnt] <= rx_data - "0";
                         if (data_cnt == (storage_row * storage_col) - 1) begin
@@ -106,13 +106,13 @@ module matrix_rx_handler(
                 end
 
                 S_WRITE: begin
-                    // Ğ´Èë´æ´¢Ä£¿é
+                    // å†™å…¥å­˜å‚¨æ¨¡å—
                     storage_wr_en <= 1;
-                    // ÕâÀïÄã¿ÉÒÔÉèÖÃÂß¼­¸Ä±ä target_idx£¬±ÈÈç´æµ½ 0, 1, 2...
-                    // ÔİÊ±Ä¬ÈÏ´æµ½Î»ÖÃ 0
+                    // è¿™é‡Œä½ å¯ä»¥è®¾ç½®é€»è¾‘æ”¹å˜ target_idxï¼Œæ¯”å¦‚å­˜åˆ° 0, 1, 2...
+                    // æš‚æ—¶é»˜è®¤å­˜åˆ°ä½ç½® 0
                     storage_target_idx <= 0; 
                     
-                    save_done_pulse <= 1; // ¸æËß Top Ä£¿é£ºĞ´ÍêÁË£¬¿ÉÒÔÏÔÊ¾ÁË
+                    save_done_pulse <= 1; // å‘Šè¯‰ Top æ¨¡å—ï¼šå†™å®Œäº†ï¼Œå¯ä»¥æ˜¾ç¤ºäº†
                     state <= S_IDLE;
                 end
             endcase
