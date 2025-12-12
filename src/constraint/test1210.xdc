@@ -57,5 +57,13 @@ set_property IOSTANDARD LVCMOS33 [get_ports {dbg_matrix_col[1]}]
 set_property PACKAGE_PIN G3 [get_ports {dbg_matrix_col[0]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {dbg_matrix_col[0]}]
 
-set_property PACKAGE_PIN G4 [get_ports dbg_write_done]
-set_property IOSTANDARD LVCMOS33 [get_ports dbg_write_done]
+set_property PACKAGE_PIN G4 [get_ports {num[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {num[0]}]
+
+set_property PACKAGE_PIN F6 [get_ports {num[1]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {num[1]}]
+
+set_property IOSTANDARD LVCMOS33 [get_ports uart_tx]
+set_property IOSTANDARD LVCMOS33 [get_ports uart_rx]
+set_property PACKAGE_PIN T4 [get_ports uart_tx]
+set_property PACKAGE_PIN N5 [get_ports uart_rx]

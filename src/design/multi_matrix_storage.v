@@ -2,10 +2,12 @@ module multi_matrix_storage #(
     parameter DATA_WIDTH        = 8,        // 数据位宽
     parameter MAX_SIZE          = 5,        // 单个矩阵最大规模（1~5）
     parameter MATRIX_NUM        = 8,        // 全局最大矩阵数量
-    parameter MAX_MATRIX_PER_SIZE = 4       // 每个规模最多存储矩阵数
+    parameter MAX_MATRIX_PER_SIZE = 4    // 每个规模最多存储矩阵数
+
 )(
     input wire                     clk,            // 时钟信号（时序写入触发）
     input wire                     rst_n,          // 低有效复位（仅用于初始化）
+
     // ---------------------------
     // 时序逻辑写入接口（wr_en为时钟使能）
     // ---------------------------
@@ -96,6 +98,7 @@ localparam SEL_IDX_W = (MAX_MATRIX_PER_SIZE <= 1)  ? 1 :
                       (MAX_MATRIX_PER_SIZE <= 16) ? 4 :
                       5;
 
+
 // ---------------------------
 // 内部核心数组（与原逻辑一致，无变化）
 // ---------------------------
@@ -132,6 +135,8 @@ assign curr_cnt_comb = size_cnt[r_store_comb][c_store_comb]; // 直接取当前�
 // 1. 复位初始化 + 时序写入逻辑（异步复位，时钟触发写入）
 // ---------------------------
 integer m, d, r, c, s, gg;
+reg wr_en_d;  // 用于检测wr_en上升沿
+
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         // 1.1 全局存储初始化（所有元素清0）
@@ -157,49 +162,17 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
         end
-/*
-        // 1.4 预存矩阵初始化（示例数据，含负数补码）
-        // 预存2x3矩阵0（全局索引0）
-        mem[0][0] <= 8'h01; mem[0][1] <= 8'h02; mem[0][2] <= 8'hFB;
-        mem[0][3] <= 8'h04; mem[0][4] <= 8'h05; mem[0][5] <= 8'h06;
-        row_self[0] <= 3'd2; col_self[0] <= 3'd3;
-        matrix_init_flag[0] <= 1'b1;
-
-        // 预存2x3矩阵1（全局索引1）
-        mem[1][0] <= 8'h11; mem[1][1] <= 8'h12; mem[1][2] <= 8'h80;
-        mem[1][3] <= 8'h14; mem[1][4] <= 8'h15; mem[1][5] <= 8'h16;
-        row_self[1] <= 3'd2; col_self[1] <= 3'd3;
-        matrix_init_flag[1] <= 1'b1;
-
-        // 预存2x3矩阵2（全局索引2）
-        mem[2][0] <= 8'h21; mem[2][1] <= 8'h22; mem[2][2] <= 8'hFF;
-        mem[2][3] <= 8'h24; mem[2][4] <= 8'h25; mem[2][5] <= 8'h26;
-        row_self[2] <= 3'd2; col_self[2] <= 3'd3;
-        matrix_init_flag[2] <= 1'b1;
-
-        // 预存3x4矩阵（全局索引3）
-        for (gg = 0; gg < 12; gg = gg + 1) begin
-            if (gg < MEM_DEPTH_PER_MATRIX) begin // 新增越界保护
-                mem[3][gg] <= 8'h31 + gg;
-            end
-        end
-        row_self[3] <= 3'd3; col_self[3] <= 3'd4;
-        matrix_init_flag[3] <= 1'b1;
-
-        // 1.5 更新预存矩阵的规模映射表和计数器
-        size2matrix[2][3][0] <= 3'd0;
-        size2matrix[2][3][1] <= 3'd1;
-        size2matrix[2][3][2] <= 3'd2;
-        size_cnt[2][3] <= 3'd3;
-
-        size2matrix[3][4][0] <= 3'd3;
-        size_cnt[3][4] <= 3'd1;
-        */
+        
+        wr_en_d <= 1'b0;
+        
     end else begin
+        // 寄存wr_en用于边沿检测
+        wr_en_d <= wr_en;
+        
         // ---------------------------
-        // 2. 时序写入逻辑（仅wr_en有效时执行）
+        // 2. 时序写入逻辑（仅在wr_en上升沿时执行一次）
         // ---------------------------
-        if (wr_en) begin
+        if (wr_en && !wr_en_d) begin  // 检测wr_en上升沿
             // 2.1 写入25个矩阵元素（使用组合逻辑预处理的有效索引）
             mem[valid_target_idx_comb][0]  <= data_in_0;
             mem[valid_target_idx_comb][1]  <= data_in_1;
@@ -232,14 +205,10 @@ always @(posedge clk or negedge rst_n) begin
             col_self[valid_target_idx_comb] <= c_store_comb;
 
             // 2.3 初始化标记与规模映射表更新（仅首次写入时执行）
-            // 关键修复：curr_cnt_comb是组合逻辑计算的当前规模最新计数
             if (!matrix_init_flag[valid_target_idx_comb] && (curr_cnt_comb < MAX_MATRIX_PER_SIZE)) begin
                 size2matrix[r_store_comb][c_store_comb][curr_cnt_comb] <= valid_target_idx_comb;
                 size_cnt[r_store_comb][c_store_comb] <= curr_cnt_comb + 1'd1;
                 matrix_init_flag[valid_target_idx_comb] <= 1'b1;
-            end
-            // 新增：越界保护（避免size2matrix索引超出范围）
-            else if (!matrix_init_flag[valid_target_idx_comb] && (curr_cnt_comb >= MAX_MATRIX_PER_SIZE)) begin
             end
         end
         // wr_en无效时，所有寄存器保持原值（时序逻辑天然特性）
@@ -297,8 +266,8 @@ always @(*) begin
     // 3.5 输出目标矩阵的实际行/列数
     matrix_row = row_self[target_global_idx];
     matrix_col = col_self[target_global_idx];
-    matrix_row = (matrix_row >= 1 && matrix_row <= MAX_SIZE) ? matrix_row : 1'd1;
-    matrix_col = (matrix_col >= 1 && matrix_col <= MAX_SIZE) ? matrix_col : 1'd1;
+    //matrix_row = (matrix_row >= 1 && matrix_row <= MAX_SIZE) ? matrix_row : 1'd1;
+    //matrix_col = (matrix_col >= 1 && matrix_col <= MAX_SIZE) ? matrix_col : 1'd1;
 end
 
 endmodule

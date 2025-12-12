@@ -165,7 +165,7 @@ always @(posedge clk or negedge rst_n) begin
         update_done <= 1'b0;
     end else if (cnt == 24 && updating) begin  // 最后一个元素刷新完成
         update_done <= 1'b1;
-    end else if (update_en) begin              // 新触发时清零，避免误判
+    end else begin              // 新触发时清零，避免误判
         update_done <= 1'b0;
     end
 end

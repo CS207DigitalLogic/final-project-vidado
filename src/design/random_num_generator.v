@@ -20,7 +20,7 @@ wire [WIDTH-1:0] valid_max;   // 有效最大值（边界保护）
 assign valid_min = (max_val >= min_val) ? min_val : {WIDTH{1'b0}};
 assign valid_max = (max_val >= min_val) ? max_val : {WIDTH{1'b1}};
 assign range = valid_max - valid_min + 1'b1; // 范围长度
-assign feedback = !(lfsr[7] ^ lfsr[5] ^ lfsr[4] ^ lfsr[3]); // 8位LFSR反馈（适配WIDTH=8）
+assign feedback = lfsr[7] ^ lfsr[5] ^ lfsr[4] ^ lfsr[3]; // 8位LFSR反馈（适配WIDTH=8）
 
 // LFSR仅在en=1时移位
 always @(posedge clk or negedge rst_n) begin
