@@ -17,18 +17,16 @@ module test_2 #(
     input  wire [2:0]               sw_col,         // 列选择拨码（3位，对应1~5）
     // 输入：触发按钮（低有效/高有效均可，消抖处理）
     input  wire                     btn_trigger,    // 按下触发矩阵生成+存储
+    input  wire                     btn_display_all,// 新增：按下输出所有存储矩阵
     // 可选输出：存储模块状态（用于调试/显示）
-    output wire [DATA_WIDTH-1:0]    dbg_matrix_data_0,  // 调试用矩阵数据0
     output wire [2:0]               dbg_matrix_row,     // 调试用矩阵行数
-    output wire [2:0]               dbg_matrix_col,     // 调试用矩阵列数
-    //output wire                     dbg_write_done,      // 写入完成指示
-    output wire [1:0] num
+    output wire [2:0]               dbg_matrix_col,    // 调试用矩阵列数
+    output wire [3:0]               num              // 调试用当前规模矩阵数量
     
 );
 // UART 
     wire [7:0] rx_data;
     wire       rx_done;
-
     // UART TX
     wire [7:0] tx_data;
     wire       tx_start;
@@ -41,12 +39,30 @@ module test_2 #(
     wire [2:0]  wr_col;
     wire [7:0]  w_data[24:0]; // 写数据连线
 
-    
     // Control
     wire        save_done; // RX Handler 完成信号
 
+    // 新增：显示所有矩阵相关信号
+    wire                            btn_display_all_pulse; // 显示按钮消抖脉冲
+    reg                             display_all_flag;      // 显示所有标志
+    reg [2:0]                       display_index;         // 显示索引
+    wire                             display_busy;          // 显示忙信号
+    wire                            display_next;          // 显示下一个矩阵
+    reg [3:0]                       display_total;         // 要显示的总矩阵数
+    reg [3:0]                       display_count;         // 已显示计数
 
-        uart_rx #(
+    // 新增：按键消抖模块（用于btn_display_all）
+    key_debounce u_keydebounce_display (
+        .clk(clk),
+        .rst_n(rst_n),
+        .btn_trigger(btn_display_all),
+        .btn_pulse(btn_display_all_pulse)
+    );
+
+    // 新增：显示完成信号
+    assign display_next = (display_all_flag && !display_busy && (display_count < display_total));
+
+    uart_rx #(
         .CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)
     ) u_rx (
         .clk(clk), .rst_n(rst_n),
@@ -54,24 +70,25 @@ module test_2 #(
         .rx_data(rx_data),
         .rx_done(rx_done)
     );
+    
     // ============================================
     // 4. Matrix Displayer (显示模块)
     // ============================================
     matrix_displayer u_displayer (
         .clk(clk), .rst_n(rst_n),
-        .start(rand_update_done), // 当存储写入完成后，立即触发显示
-        .busy(),           // 暂时不用
+        .start(rand_update_done || display_next), // 修改：存储完成或显示下一个时触发
+        .busy(display_busy),           // 连接到显示忙信号
         
         // 维度信息：直接使用刚才写入的维度
         .matrix_row(sw_row),
         .matrix_col(sw_col),
         
         // 数据输入：来自 Storage 的读出数据
-        .d0(rand_data[0]), .d1(rand_data[1]), .d2(rand_data[2]), .d3(rand_data[3]), .d4(rand_data[4]),
-        .d5(rand_data[5]), .d6(rand_data[6]), .d7(rand_data[7]), .d8(rand_data[8]), .d9(rand_data[9]),
-        .d10(rand_data[10]),.d11(rand_data[11]),.d12(rand_data[12]),.d13(rand_data[13]),.d14(rand_data[14]),
-        .d15(rand_data[15]),.d16(rand_data[16]),.d17(rand_data[17]),.d18(rand_data[18]),.d19(rand_data[19]),
-        .d20(rand_data[20]),.d21(rand_data[21]),.d22(rand_data[22]),.d23(rand_data[23]),.d24(rand_data[24]),
+        .d0(r_data[0]), .d1(r_data[1]), .d2(r_data[2]), .d3(r_data[3]), .d4(r_data[4]),
+        .d5(r_data[5]), .d6(r_data[6]), .d7(r_data[7]), .d8(r_data[8]), .d9(r_data[9]),
+        .d10(r_data[10]),.d11(r_data[11]),.d12(r_data[12]),.d13(r_data[13]),.d14(r_data[14]),
+        .d15(r_data[15]),.d16(r_data[16]),.d17(r_data[17]),.d18(r_data[18]),.d19(r_data[19]),
+        .d20(r_data[20]),.d21(r_data[21]),.d22(r_data[22]),.d23(r_data[23]),.d24(r_data[24]),
         
         .tx_data(tx_data),
         .tx_start(tx_start),
@@ -101,11 +118,11 @@ wire                            btn_pulse;       // 消抖后的按键单脉冲
 wire [DATA_WIDTH-1:0]           rand_data[0:24]; // 随机矩阵数据总线
 wire                            rand_update_done;// 随机矩阵生成完成
 // 矩阵存储模块接口
-reg [3:0]                       target_idx_reg;  // 当前写入的全局矩阵索引（0~7）
 reg                             wr_en_reg;       // 存储模块写使能
 // 状态控制
 reg                             write_flag;      // 写入完成标志（防重复触发）
 wire [DATA_WIDTH-1:0]           r_data[0:24];
+
 // ---------------------------
 // 1. 按键消抖模块（核心：消除物理按键抖动）
 // ---------------------------
@@ -172,7 +189,6 @@ multi_matrix_storage #(
     .rst_n(rst_n),
     // 写入接口
     .wr_en(wr_en_reg),                     // 写使能（生成完成后触发）
-    .target_idx(target_idx_reg),           // 当前写入的全局索引
     .write_row(sw_row),                    // 写入矩阵行数（拨码输入）
     .write_col(sw_col),                    // 写入矩阵列数（拨码输入）
     .data_in_0(rand_data[0]),
@@ -200,37 +216,37 @@ multi_matrix_storage #(
     .data_in_22(rand_data[22]),
     .data_in_23(rand_data[23]),
     .data_in_24(rand_data[24]),
-    // 查询接口（顶层暂不使用，接默认值）
+    // 查询接口（连接到显示控制逻辑）
     .req_scale_row(sw_row),
     .req_scale_col(sw_col),
-    .req_idx(2'd0),
+    .req_idx(display_index),           // 修改：连接到显示索引
     // 输出接口（调试用）
     .scale_matrix_cnt(num),
-    .matrix_data_0(dbg_matrix_data_0),
-    .matrix_data_1(),
-    .matrix_data_2(),
-    .matrix_data_3(),
-    .matrix_data_4(),
-    .matrix_data_5(),
-    .matrix_data_6(),
-    .matrix_data_7(),
-    .matrix_data_8(),
-    .matrix_data_9(),
-    .matrix_data_10(),
-    .matrix_data_11(),
-    .matrix_data_12(),
-    .matrix_data_13(),
-    .matrix_data_14(),
-    .matrix_data_15(),
-    .matrix_data_16(),
-    .matrix_data_17(),
-    .matrix_data_18(),
-    .matrix_data_19(),
-    .matrix_data_20(),
-    .matrix_data_21(),
-    .matrix_data_22(),
-    .matrix_data_23(),
-    .matrix_data_24(),
+    .matrix_data_0(r_data[0]),
+    .matrix_data_1(r_data[1]),
+    .matrix_data_2(r_data[2]),
+    .matrix_data_3(r_data[3]),
+    .matrix_data_4(r_data[4]),
+    .matrix_data_5(r_data[5]),
+    .matrix_data_6(r_data[6]),
+    .matrix_data_7(r_data[7]),
+    .matrix_data_8(r_data[8]),
+    .matrix_data_9(r_data[9]),
+    .matrix_data_10(r_data[10]),
+    .matrix_data_11(r_data[11]),
+    .matrix_data_12(r_data[12]),
+    .matrix_data_13(r_data[13]),
+    .matrix_data_14(r_data[14]),
+    .matrix_data_15(r_data[15]),
+    .matrix_data_16(r_data[16]),
+    .matrix_data_17(r_data[17]),
+    .matrix_data_18(r_data[18]),
+    .matrix_data_19(r_data[19]),
+    .matrix_data_20(r_data[20]),
+    .matrix_data_21(r_data[21]),
+    .matrix_data_22(r_data[22]),
+    .matrix_data_23(r_data[23]),
+    .matrix_data_24(r_data[24]),
     .matrix_row(dbg_matrix_row),
     .matrix_col(dbg_matrix_col),
     .matrix_valid()
@@ -242,7 +258,6 @@ multi_matrix_storage #(
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         wr_en_reg     <= 1'b0;
-        target_idx_reg <= 4'd0;
         write_flag    <= 1'b0;
     end else begin
         // 初始状态：写使能清零
@@ -252,13 +267,6 @@ always @(posedge clk or negedge rst_n) begin
         if (rand_update_done && !write_flag) begin
             wr_en_reg  <= 1'b1;                // 触发存储模块写使能
             write_flag <= 1'b1;                // 标记已写入，防重复触发
-            
-            // 全局索引递增（循环：0~7）
-            if (target_idx_reg == MATRIX_NUM - 1) begin
-                target_idx_reg <= 4'd0;
-            end else begin
-                target_idx_reg <= target_idx_reg + 1'b1;
-            end
         end
 
         // 按键触发新请求时，清零写入标记
@@ -269,59 +277,34 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 // ---------------------------
-// 5. 调试输出：写入完成指示
+// 5. 新增：显示所有存储矩阵的控制逻辑
 // ---------------------------
-//assign dbg_write_done = write_flag;
-
-endmodule
-
-// ---------------------------
-// 辅助模块：按键消抖（带单脉冲输出）
-// ---------------------------
-module key_debounce (
-    input  wire clk,
-    input  wire rst_n,
-    input  wire btn_trigger,
-    output reg  btn_pulse
-);
-
-reg btn_sync1, btn_sync2;
-always @(posedge clk) begin
-    btn_sync1 <= btn_trigger;
-    btn_sync2 <= btn_sync1;
-end
-
-reg [19:0] debounce_cnt;  
-reg btn_debounced;        
-always @(posedge clk) begin
-    if (btn_sync2 != btn_debounced) begin  
-        debounce_cnt <= debounce_cnt + 1'b1;
-        if (debounce_cnt == 20'd1000000 - 1) begin 
-            btn_debounced <= btn_sync2; 
-            debounce_cnt  <= 20'd0;  
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        display_all_flag <= 1'b0;
+        display_index <= 3'b0;
+        display_total <= 4'b0;
+        display_count <= 4'b0;
+    end else begin
+        // 检测到显示所有按钮按下
+        if (btn_display_all_pulse && !display_all_flag) begin
+            display_all_flag <= 1'b1;
+            display_index <= 3'b0;          // 从第一个矩阵开始
+            display_total <= num;           // 获取当前规模的总矩阵数
+            display_count <= 4'b0;          // 已显示计数清零
         end
-    end else begin 
-        debounce_cnt <= 20'd0;
+        
+        // 显示下一个矩阵
+        if (display_next) begin
+            // 更新索引和计数
+            display_index <= display_index + 1'b1;
+            display_count <= display_count + 1'b1;
+        // 如果在显示过程中有新的矩阵写入，更新总数
+        if (display_all_flag && (display_total != num)) begin
+            display_total <= num;
+        end
     end
 end
-
-reg btn_debounced_prev;  
-always @(posedge clk) begin
-    btn_debounced_prev <= btn_debounced;
-    
-   if (btn_debounced_prev == 1'b1 && btn_debounced == 1'b0) begin
-            btn_pulse <= 1'b1;
-        end else begin
-            btn_pulse <= 1'b0;
-        end
 end
 
-
-initial begin
-    btn_sync1         = 1'b1;
-    btn_sync2         = 1'b1;
-    debounce_cnt      = 20'd0;
-    btn_debounced     = 1'b1;
-    btn_debounced_prev= 1'b1;
-end
 endmodule
