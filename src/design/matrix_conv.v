@@ -1,4 +1,4 @@
-module matrix_rom#(
+module matrix_conv#(
     parameter DATA_WIDTH = 9
 ) (
     input clk,
