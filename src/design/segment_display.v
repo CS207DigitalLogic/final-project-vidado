@@ -27,7 +27,7 @@
         4*2：选择第二个运算数
 
 */
-module segmentDisplay (
+module segment_display (
     input clk, //时钟信号
     input reset,//复位信号
     input [11:0] menuState, //当前菜单状态 使用10进制BCD码
