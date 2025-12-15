@@ -272,6 +272,102 @@ module matrix_adder #(
         .isOrdered(order_b_en)
     );
     
+    // === 加法结果中转信号 ===
+    reg [DATA_WIDTH-1:0] added_data_0, added_data_1, added_data_2, added_data_3, added_data_4;
+    reg [DATA_WIDTH-1:0] added_data_5, added_data_6, added_data_7, added_data_8, added_data_9;
+    reg [DATA_WIDTH-1:0] added_data_10, added_data_11, added_data_12, added_data_13, added_data_14;
+    reg [DATA_WIDTH-1:0] added_data_15, added_data_16, added_data_17, added_data_18, added_data_19;
+    reg [DATA_WIDTH-1:0] added_data_20, added_data_21, added_data_22, added_data_23, added_data_24;
+    
+    // ==================== Restore模块实例化 ====================
+    wire [DATA_WIDTH-1:0] restored_data_0;
+    wire [DATA_WIDTH-1:0] restored_data_1;
+    wire [DATA_WIDTH-1:0] restored_data_2;
+    wire [DATA_WIDTH-1:0] restored_data_3;
+    wire [DATA_WIDTH-1:0] restored_data_4;
+    wire [DATA_WIDTH-1:0] restored_data_5;
+    wire [DATA_WIDTH-1:0] restored_data_6;
+    wire [DATA_WIDTH-1:0] restored_data_7;
+    wire [DATA_WIDTH-1:0] restored_data_8;
+    wire [DATA_WIDTH-1:0] restored_data_9;
+    wire [DATA_WIDTH-1:0] restored_data_10;
+    wire [DATA_WIDTH-1:0] restored_data_11;
+    wire [DATA_WIDTH-1:0] restored_data_12;
+    wire [DATA_WIDTH-1:0] restored_data_13;
+    wire [DATA_WIDTH-1:0] restored_data_14;
+    wire [DATA_WIDTH-1:0] restored_data_15;
+    wire [DATA_WIDTH-1:0] restored_data_16;
+    wire [DATA_WIDTH-1:0] restored_data_17;
+    wire [DATA_WIDTH-1:0] restored_data_18;
+    wire [DATA_WIDTH-1:0] restored_data_19;
+    wire [DATA_WIDTH-1:0] restored_data_20;
+    wire [DATA_WIDTH-1:0] restored_data_21;
+    wire [DATA_WIDTH-1:0] restored_data_22;
+    wire [DATA_WIDTH-1:0] restored_data_23;
+    wire [DATA_WIDTH-1:0] restored_data_24;
+    wire isRestored;
+    reg restore_en;
+    matrix_restore #(
+        .DATA_WIDTH(DATA_WIDTH)
+    ) restore_inst (
+        .clk(clk),
+        .reset_n(reset_n),
+        .r(r1),
+        .c(c1),
+        .data_in_0(added_data_0),
+        .data_in_1(added_data_1),
+        .data_in_2(added_data_2),
+        .data_in_3(added_data_3),
+        .data_in_4(added_data_4),
+        .data_in_5(added_data_5),
+        .data_in_6(added_data_6),
+        .data_in_7(added_data_7),
+        .data_in_8(added_data_8),
+        .data_in_9(added_data_9),
+        .data_in_10(added_data_10),
+        .data_in_11(added_data_11),
+        .data_in_12(added_data_12),
+        .data_in_13(added_data_13),
+        .data_in_14(added_data_14),
+        .data_in_15(added_data_15),
+        .data_in_16(added_data_16),
+        .data_in_17(added_data_17),
+        .data_in_18(added_data_18),
+        .data_in_19(added_data_19),
+        .data_in_20(added_data_20),
+        .data_in_21(added_data_21),
+        .data_in_22(added_data_22),
+        .data_in_23(added_data_23),
+        .data_in_24(added_data_24),
+        .en(restore_en),
+        .data_out_0(restored_data_0),
+        .data_out_1(restored_data_1),
+        .data_out_2(restored_data_2),
+        .data_out_3(restored_data_3),
+        .data_out_4(restored_data_4),
+        .data_out_5(restored_data_5),
+        .data_out_6(restored_data_6),
+        .data_out_7(restored_data_7),
+        .data_out_8(restored_data_8),
+        .data_out_9(restored_data_9),
+        .data_out_10(restored_data_10),
+        .data_out_11(restored_data_11),
+        .data_out_12(restored_data_12),
+        .data_out_13(restored_data_13),
+        .data_out_14(restored_data_14),
+        .data_out_15(restored_data_15),
+        .data_out_16(restored_data_16),
+        .data_out_17(restored_data_17),
+        .data_out_18(restored_data_18),
+        .data_out_19(restored_data_19),
+        .data_out_20(restored_data_20),
+        .data_out_21(restored_data_21),
+        .data_out_22(restored_data_22),
+        .data_out_23(restored_data_23),
+        .data_out_24(restored_data_24),
+        .isRestored(isRestored)
+    );
+    
     // 第二级：Transpose模块的en（延迟一拍）
     always@(order_a_en or order_b_en) begin
         // 只有在同时算好或都被重置时才触发
@@ -414,6 +510,7 @@ module matrix_adder #(
             r_out <= 0;
             c_out <= 0;
             isCalculated <= 0;
+            restore_en <= 0;
             
             // 清空所有输出
             data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
@@ -421,6 +518,12 @@ module matrix_adder #(
             data_out_10 <= 0; data_out_11 <= 0; data_out_12 <= 0; data_out_13 <= 0; data_out_14 <= 0;
             data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
             data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
+            // 初始化中转信号
+            added_data_0 <= 0; added_data_1 <= 0; added_data_2 <= 0; added_data_3 <= 0; added_data_4 <= 0;
+            added_data_5 <= 0; added_data_6 <= 0; added_data_7 <= 0; added_data_8 <= 0; added_data_9 <= 0;
+            added_data_10 <= 0; added_data_11 <= 0; added_data_12 <= 0; added_data_13 <= 0; added_data_14 <= 0;
+            added_data_15 <= 0; added_data_16 <= 0; added_data_17 <= 0; added_data_18 <= 0; added_data_19 <= 0;
+            added_data_20 <= 0; added_data_21 <= 0; added_data_22 <= 0; added_data_23 <= 0; added_data_24 <= 0;
         end else begin
             if (internal_en && !internal_busy && !isCalculated) begin
                 // 检查矩阵是否可以相加（维度必须相等）
@@ -440,44 +543,44 @@ module matrix_adder #(
                 // 将这5个结果复制到对应的5个输出位置
                 case(row_counter)
                     3'd0: begin
-                        // 第0行：复制到data_out_0到data_out_4
-                        data_out_0 <= adder_result_0;
-                        data_out_1 <= adder_result_1;
-                        data_out_2 <= adder_result_2;
-                        data_out_3 <= adder_result_3;
-                        data_out_4 <= adder_result_4;
+                        // 第0行：存储到added_data_0到added_data_4
+                        added_data_0 <= adder_result_0;
+                        added_data_1 <= adder_result_1;
+                        added_data_2 <= adder_result_2;
+                        added_data_3 <= adder_result_3;
+                        added_data_4 <= adder_result_4;
                     end
                     3'd1: begin
-                        // 第1行：复制到data_out_5到data_out_9
-                        data_out_5 <= adder_result_0;
-                        data_out_6 <= adder_result_1;
-                        data_out_7 <= adder_result_2;
-                        data_out_8 <= adder_result_3;
-                        data_out_9 <= adder_result_4;
+                        // 第1行：存储到added_data_5到added_data_9
+                        added_data_5 <= adder_result_0;
+                        added_data_6 <= adder_result_1;
+                        added_data_7 <= adder_result_2;
+                        added_data_8 <= adder_result_3;
+                        added_data_9 <= adder_result_4;
                     end
                     3'd2: begin
-                        // 第2行：复制到data_out_10到data_out_14
-                        data_out_10 <= adder_result_0;
-                        data_out_11 <= adder_result_1;
-                        data_out_12 <= adder_result_2;
-                        data_out_13 <= adder_result_3;
-                        data_out_14 <= adder_result_4;
+                        // 第2行：存储到added_data_10到added_data_14
+                        added_data_10 <= adder_result_0;
+                        added_data_11 <= adder_result_1;
+                        added_data_12 <= adder_result_2;
+                        added_data_13 <= adder_result_3;
+                        added_data_14 <= adder_result_4;
                     end
                     3'd3: begin
-                        // 第3行：复制到data_out_15到data_out_19
-                        data_out_15 <= adder_result_0;
-                        data_out_16 <= adder_result_1;
-                        data_out_17 <= adder_result_2;
-                        data_out_18 <= adder_result_3;
-                        data_out_19 <= adder_result_4;
+                        // 第3行：存储到added_data_15到added_data_19
+                        added_data_15 <= adder_result_0;
+                        added_data_16 <= adder_result_1;
+                        added_data_17 <= adder_result_2;
+                        added_data_18 <= adder_result_3;
+                        added_data_19 <= adder_result_4;
                     end
                     3'd4: begin
-                        // 第4行：复制到data_out_20到data_out_24
-                        data_out_20 <= adder_result_0;
-                        data_out_21 <= adder_result_1;
-                        data_out_22 <= adder_result_2;
-                        data_out_23 <= adder_result_3;
-                        data_out_24 <= adder_result_4;
+                        // 第4行：存储到added_data_20到added_data_24
+                        added_data_20 <= adder_result_0;
+                        added_data_21 <= adder_result_1;
+                        added_data_22 <= adder_result_2;
+                        added_data_23 <= adder_result_3;
+                        added_data_24 <= adder_result_4;
                     end
                 endcase
                 
@@ -486,11 +589,41 @@ module matrix_adder #(
                     row_counter <= row_counter + 1;
                 end else begin
                     // 完成所有5行元素的计算
-                    busy <= 0;
                     internal_busy <= 0;
                     isCalculated <= 1;
                     row_counter <= 0;
+                    restore_en <= 1;
                 end
+            end else if (isRestored) begin
+                // restore完成后，输出最终结果
+                data_out_0 <= restored_data_0;
+                data_out_1 <= restored_data_1;
+                data_out_2 <= restored_data_2;
+                data_out_3 <= restored_data_3;
+                data_out_4 <= restored_data_4;
+                data_out_5 <= restored_data_5;
+                data_out_6 <= restored_data_6;
+                data_out_7 <= restored_data_7;
+                data_out_8 <= restored_data_8;
+                data_out_9 <= restored_data_9;
+                data_out_10 <= restored_data_10;
+                data_out_11 <= restored_data_11;
+                data_out_12 <= restored_data_12;
+                data_out_13 <= restored_data_13;
+                data_out_14 <= restored_data_14;
+                data_out_15 <= restored_data_15;
+                data_out_16 <= restored_data_16;
+                data_out_17 <= restored_data_17;
+                data_out_18 <= restored_data_18;
+                data_out_19 <= restored_data_19;
+                data_out_20 <= restored_data_20;
+                data_out_21 <= restored_data_21;
+                data_out_22 <= restored_data_22;
+                data_out_23 <= restored_data_23;
+                data_out_24 <= restored_data_24;
+                
+                restore_en <= 0;
+                busy <= 0;
             end else if (!en) begin
                 // 复位所有寄存器和输出
                 row_counter <= 0;
@@ -500,12 +633,19 @@ module matrix_adder #(
                 r_out <= 0;
                 c_out <= 0;
                 isCalculated <= 0;
-                
+                restore_en <= 0;
+                // 重置输出信号
                 data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
                 data_out_5 <= 0; data_out_6 <= 0; data_out_7 <= 0; data_out_8 <= 0; data_out_9 <= 0;
                 data_out_10 <= 0; data_out_11 <= 0; data_out_12 <= 0; data_out_13 <= 0; data_out_14 <= 0;
                 data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
                 data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
+                // 重置中转信号
+                added_data_0 <= 0; added_data_1 <= 0; added_data_2 <= 0; added_data_3 <= 0; added_data_4 <= 0;
+                added_data_5 <= 0; added_data_6 <= 0; added_data_7 <= 0; added_data_8 <= 0; added_data_9 <= 0;
+                added_data_10 <= 0; added_data_11 <= 0; added_data_12 <= 0; added_data_13 <= 0; added_data_14 <= 0;
+                added_data_15 <= 0; added_data_16 <= 0; added_data_17 <= 0; added_data_18 <= 0; added_data_19 <= 0;
+                added_data_20 <= 0; added_data_21 <= 0; added_data_22 <= 0; added_data_23 <= 0; added_data_24 <= 0;
             end
         end
     end

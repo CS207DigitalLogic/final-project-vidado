@@ -272,6 +272,102 @@ module matrix_multiplier #(
         .isOrdered(order_b_en)
     );
     
+    // === 加法结果中转信号 ===
+    reg [DATA_WIDTH-1:0] multiplied_data_0, multiplied_data_1, multiplied_data_2, multiplied_data_3, multiplied_data_4;
+    reg [DATA_WIDTH-1:0] multiplied_data_5, multiplied_data_6, multiplied_data_7, multiplied_data_8, multiplied_data_9;
+    reg [DATA_WIDTH-1:0] multiplied_data_10, multiplied_data_11, multiplied_data_12, multiplied_data_13, multiplied_data_14;
+    reg [DATA_WIDTH-1:0] multiplied_data_15, multiplied_data_16, multiplied_data_17, multiplied_data_18, multiplied_data_19;
+    reg [DATA_WIDTH-1:0] multiplied_data_20, multiplied_data_21, multiplied_data_22, multiplied_data_23, multiplied_data_24;
+    
+    // ==================== Restore模块实例化 ====================
+    wire [DATA_WIDTH-1:0] restored_data_0;
+    wire [DATA_WIDTH-1:0] restored_data_1;
+    wire [DATA_WIDTH-1:0] restored_data_2;
+    wire [DATA_WIDTH-1:0] restored_data_3;
+    wire [DATA_WIDTH-1:0] restored_data_4;
+    wire [DATA_WIDTH-1:0] restored_data_5;
+    wire [DATA_WIDTH-1:0] restored_data_6;
+    wire [DATA_WIDTH-1:0] restored_data_7;
+    wire [DATA_WIDTH-1:0] restored_data_8;
+    wire [DATA_WIDTH-1:0] restored_data_9;
+    wire [DATA_WIDTH-1:0] restored_data_10;
+    wire [DATA_WIDTH-1:0] restored_data_11;
+    wire [DATA_WIDTH-1:0] restored_data_12;
+    wire [DATA_WIDTH-1:0] restored_data_13;
+    wire [DATA_WIDTH-1:0] restored_data_14;
+    wire [DATA_WIDTH-1:0] restored_data_15;
+    wire [DATA_WIDTH-1:0] restored_data_16;
+    wire [DATA_WIDTH-1:0] restored_data_17;
+    wire [DATA_WIDTH-1:0] restored_data_18;
+    wire [DATA_WIDTH-1:0] restored_data_19;
+    wire [DATA_WIDTH-1:0] restored_data_20;
+    wire [DATA_WIDTH-1:0] restored_data_21;
+    wire [DATA_WIDTH-1:0] restored_data_22;
+    wire [DATA_WIDTH-1:0] restored_data_23;
+    wire [DATA_WIDTH-1:0] restored_data_24;
+    wire isRestored;
+    reg restore_en;
+    matrix_restore #(
+        .DATA_WIDTH(DATA_WIDTH)
+    ) restore_inst (
+        .clk(clk),
+        .reset_n(reset_n),
+        .r(r1),
+        .c(c1),
+        .data_in_0(multiplied_data_0),
+        .data_in_1(multiplied_data_1),
+        .data_in_2(multiplied_data_2),
+        .data_in_3(multiplied_data_3),
+        .data_in_4(multiplied_data_4),
+        .data_in_5(multiplied_data_5),
+        .data_in_6(multiplied_data_6),
+        .data_in_7(multiplied_data_7),
+        .data_in_8(multiplied_data_8),
+        .data_in_9(multiplied_data_9),
+        .data_in_10(multiplied_data_10),
+        .data_in_11(multiplied_data_11),
+        .data_in_12(multiplied_data_12),
+        .data_in_13(multiplied_data_13),
+        .data_in_14(multiplied_data_14),
+        .data_in_15(multiplied_data_15),
+        .data_in_16(multiplied_data_16),
+        .data_in_17(multiplied_data_17),
+        .data_in_18(multiplied_data_18),
+        .data_in_19(multiplied_data_19),
+        .data_in_20(multiplied_data_20),
+        .data_in_21(multiplied_data_21),
+        .data_in_22(multiplied_data_22),
+        .data_in_23(multiplied_data_23),
+        .data_in_24(multiplied_data_24),
+        .en(restore_en),
+        .data_out_0(restored_data_0),
+        .data_out_1(restored_data_1),
+        .data_out_2(restored_data_2),
+        .data_out_3(restored_data_3),
+        .data_out_4(restored_data_4),
+        .data_out_5(restored_data_5),
+        .data_out_6(restored_data_6),
+        .data_out_7(restored_data_7),
+        .data_out_8(restored_data_8),
+        .data_out_9(restored_data_9),
+        .data_out_10(restored_data_10),
+        .data_out_11(restored_data_11),
+        .data_out_12(restored_data_12),
+        .data_out_13(restored_data_13),
+        .data_out_14(restored_data_14),
+        .data_out_15(restored_data_15),
+        .data_out_16(restored_data_16),
+        .data_out_17(restored_data_17),
+        .data_out_18(restored_data_18),
+        .data_out_19(restored_data_19),
+        .data_out_20(restored_data_20),
+        .data_out_21(restored_data_21),
+        .data_out_22(restored_data_22),
+        .data_out_23(restored_data_23),
+        .data_out_24(restored_data_24),
+        .isRestored(isRestored)
+    );
+    
     // 第二级：Transpose模块的en（延迟一拍）
     always@(order_a_en or order_b_en) begin
         // 只有在同时算好或都被重置时才触发
@@ -421,12 +517,20 @@ module matrix_multiplier #(
             r_out <= 0;
             c_out <= 0;
             isCalculated <= 0;
+            restore_en <= 0;
             
+            // 清空所有输出
             data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
             data_out_5 <= 0; data_out_6 <= 0; data_out_7 <= 0; data_out_8 <= 0; data_out_9 <= 0;
             data_out_10 <= 0; data_out_11 <= 0; data_out_12 <= 0; data_out_13 <= 0; data_out_14 <= 0;
             data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
             data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
+            // 初始化中转信号
+            multiplied_data_0 <= 0; multiplied_data_1 <= 0; multiplied_data_2 <= 0; multiplied_data_3 <= 0; multiplied_data_4 <= 0;
+            multiplied_data_5 <= 0; multiplied_data_6 <= 0; multiplied_data_7 <= 0; multiplied_data_8 <= 0; multiplied_data_9 <= 0;
+            multiplied_data_10 <= 0; multiplied_data_11 <= 0; multiplied_data_12 <= 0; multiplied_data_13 <= 0; multiplied_data_14 <= 0;
+            multiplied_data_15 <= 0; multiplied_data_16 <= 0; multiplied_data_17 <= 0; multiplied_data_18 <= 0; multiplied_data_19 <= 0;
+            multiplied_data_20 <= 0; multiplied_data_21 <= 0; multiplied_data_22 <= 0; multiplied_data_23 <= 0; multiplied_data_24 <= 0;
         end else begin
             if (internal_en && !internal_busy && !isCalculated) begin
                 if (c1 == r2) begin
@@ -444,31 +548,31 @@ module matrix_multiplier #(
                 // 忙状态：进行计算和存储
                 // 正在计算：存储上一个时钟周期的结果
                 case(calc_counter)
-                    0: data_out_0 <= sum_result;
-                    1: data_out_1 <= sum_result;
-                    2: data_out_2 <= sum_result;
-                    3: data_out_3 <= sum_result;
-                    4: data_out_4 <= sum_result;
-                    5: data_out_5 <= sum_result;
-                    6: data_out_6 <= sum_result;
-                    7: data_out_7 <= sum_result;
-                    8: data_out_8 <= sum_result;
-                    9: data_out_9 <= sum_result;
-                    10: data_out_10 <= sum_result;
-                    11: data_out_11 <= sum_result;
-                    12: data_out_12 <= sum_result;
-                    13: data_out_13 <= sum_result;
-                    14: data_out_14 <= sum_result;
-                    15: data_out_15 <= sum_result;
-                    16: data_out_16 <= sum_result;
-                    17: data_out_17 <= sum_result;
-                    18: data_out_18 <= sum_result;
-                    19: data_out_19 <= sum_result;
-                    20: data_out_20 <= sum_result;
-                    21: data_out_21 <= sum_result;
-                    22: data_out_22 <= sum_result;
-                    23: data_out_23 <= sum_result;
-                    24: data_out_24 <= sum_result;
+                    0: multiplied_data_0 <= sum_result;
+                    1: multiplied_data_1 <= sum_result;
+                    2: multiplied_data_2 <= sum_result;
+                    3: multiplied_data_3 <= sum_result;
+                    4: multiplied_data_4 <= sum_result;
+                    5: multiplied_data_5 <= sum_result;
+                    6: multiplied_data_6 <= sum_result;
+                    7: multiplied_data_7 <= sum_result;
+                    8: multiplied_data_8 <= sum_result;
+                    9: multiplied_data_9 <= sum_result;
+                    10: multiplied_data_10 <= sum_result;
+                    11: multiplied_data_11 <= sum_result;
+                    12: multiplied_data_12 <= sum_result;
+                    13: multiplied_data_13 <= sum_result;
+                    14: multiplied_data_14 <= sum_result;
+                    15: multiplied_data_15 <= sum_result;
+                    16: multiplied_data_16 <= sum_result;
+                    17: multiplied_data_17 <= sum_result;
+                    18: multiplied_data_18 <= sum_result;
+                    19: multiplied_data_19 <= sum_result;
+                    20: multiplied_data_20 <= sum_result;
+                    21: multiplied_data_21 <= sum_result;
+                    22: multiplied_data_22 <= sum_result;
+                    23: multiplied_data_23 <= sum_result;
+                    24: multiplied_data_24 <= sum_result;
                 endcase
                 
                 // 递增计数器
@@ -476,11 +580,41 @@ module matrix_multiplier #(
                     calc_counter <= calc_counter + 1;
                 end else begin
                     // 完成所有25个元素的计算
-                    busy <= 0;
                     internal_busy <= 0;
                     isCalculated <= 1;
                     calc_counter <= 0;
+                    restore_en <= 1;
                 end
+            end else if (isRestored) begin
+                // restore完成后，输出最终结果
+                data_out_0 <= restored_data_0;
+                data_out_1 <= restored_data_1;
+                data_out_2 <= restored_data_2;
+                data_out_3 <= restored_data_3;
+                data_out_4 <= restored_data_4;
+                data_out_5 <= restored_data_5;
+                data_out_6 <= restored_data_6;
+                data_out_7 <= restored_data_7;
+                data_out_8 <= restored_data_8;
+                data_out_9 <= restored_data_9;
+                data_out_10 <= restored_data_10;
+                data_out_11 <= restored_data_11;
+                data_out_12 <= restored_data_12;
+                data_out_13 <= restored_data_13;
+                data_out_14 <= restored_data_14;
+                data_out_15 <= restored_data_15;
+                data_out_16 <= restored_data_16;
+                data_out_17 <= restored_data_17;
+                data_out_18 <= restored_data_18;
+                data_out_19 <= restored_data_19;
+                data_out_20 <= restored_data_20;
+                data_out_21 <= restored_data_21;
+                data_out_22 <= restored_data_22;
+                data_out_23 <= restored_data_23;
+                data_out_24 <= restored_data_24;
+                
+                restore_en <= 0;
+                busy <= 0;
             end else if (!en) begin
                 // 复位所有寄存器和输出
                 calc_counter <= 0;
@@ -490,12 +624,19 @@ module matrix_multiplier #(
                 r_out <= 0;
                 c_out <= 0;
                 isCalculated <= 0;
-                
+                restore_en <= 0;
+                // 重置输出信号
                 data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
                 data_out_5 <= 0; data_out_6 <= 0; data_out_7 <= 0; data_out_8 <= 0; data_out_9 <= 0;
                 data_out_10 <= 0; data_out_11 <= 0; data_out_12 <= 0; data_out_13 <= 0; data_out_14 <= 0;
                 data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
                 data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
+                // 重置中转信号
+                multiplied_data_0 <= 0; multiplied_data_1 <= 0; multiplied_data_2 <= 0; multiplied_data_3 <= 0; multiplied_data_4 <= 0;
+                multiplied_data_5 <= 0; multiplied_data_6 <= 0; multiplied_data_7 <= 0; multiplied_data_8 <= 0; multiplied_data_9 <= 0;
+                multiplied_data_10 <= 0; multiplied_data_11 <= 0; multiplied_data_12 <= 0; multiplied_data_13 <= 0; multiplied_data_14 <= 0;
+                multiplied_data_15 <= 0; multiplied_data_16 <= 0; multiplied_data_17 <= 0; multiplied_data_18 <= 0; multiplied_data_19 <= 0;
+                multiplied_data_20 <= 0; multiplied_data_21 <= 0; multiplied_data_22 <= 0; multiplied_data_23 <= 0; multiplied_data_24 <= 0;
             end
         end
     end
