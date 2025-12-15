@@ -6,7 +6,7 @@ module uart_tx #(
 )(
     input wire clk,
     input wire rst_n,
-    input wire tx_start,         // 开始发送脉冲
+    input wire tx_start,         // 开始发送请求
     input wire [7:0] tx_data,    // 待发送数据
     output reg tx,               // UART TX 信号线
     output reg tx_busy           // 忙信号
@@ -24,24 +24,37 @@ module uart_tx #(
     reg [15:0] baud_cnt;
     reg [2:0] bit_idx;
     reg [7:0] data_reg;
+    reg isCompleted; // 锁存器
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= S_IDLE;
-            tx <= 1'b1; // 空闲高电平
+            tx <= 1'b1;
             tx_busy <= 1'b0;
             baud_cnt <= 0;
             bit_idx <= 0;
             data_reg <= 0;
+            isCompleted <= 1'b0;
         end else begin
+
+            // 1. 解锁逻辑：只有当外部把 tx_start 拉低时，才允许复位 isCompleted
+            if (tx_start == 1'b0) begin
+                isCompleted <= 1'b0;
+            end
+            
             case (state)
                 S_IDLE: begin
                     tx <= 1'b1;
-                    if (tx_start) begin
+                    // 2. 启动逻辑：tx_start 为高 且 尚未完成(!isCompleted)
+                    if (tx_start && !isCompleted) begin
                         state <= S_START;
                         tx_busy <= 1'b1;
                         data_reg <= tx_data;
                         baud_cnt <= 0;
+                        
+                        // 【关键修改点】: 启动的同时，立即把自己锁住！
+                        // 这样下个时钟周期回来时，!isCompleted 就为假了，不会重复触发。
+                        isCompleted <= 1'b1; 
                     end else begin
                         tx_busy <= 1'b0;
                     end
@@ -59,7 +72,7 @@ module uart_tx #(
                 end
 
                 S_DATA: begin
-                    tx <= data_reg[bit_idx]; // 发送数据位 (LSB first)
+                    tx <= data_reg[bit_idx]; // 发送数据位
                     if (baud_cnt == BAUD_DIV - 1) begin
                         baud_cnt <= 0;
                         if (bit_idx == 7) begin
@@ -77,7 +90,7 @@ module uart_tx #(
                     if (baud_cnt == BAUD_DIV - 1) begin
                         baud_cnt <= 0;
                         state <= S_IDLE;
-                        tx_busy <= 1'b0;
+                        tx_busy <= 1'b0; // 任务结束
                     end else begin
                         baud_cnt <= baud_cnt + 1;
                     end
