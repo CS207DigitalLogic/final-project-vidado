@@ -27,12 +27,13 @@ module matrix_displayer(
 
     // 状态机定义
     localparam S_IDLE       = 0;
-    localparam S_SEND_DIGIT = 1;
-    localparam S_WAIT_DIGIT = 2;
-    localparam S_SEND_SEP   = 3;
-    localparam S_WAIT_SEP   = 4;
-    localparam S_DONE       = 5; 
-    localparam S_WAIT_RELEASE = 6; 
+    localparam S_PREPARE    = 1;
+    localparam S_SEND_DIGIT = 2;
+    localparam S_WAIT_DIGIT = 3;
+    localparam S_SEND_SEP   = 4;
+    localparam S_WAIT_SEP   = 5;
+    localparam S_DONE       = 6; 
+    localparam S_WAIT_RELEASE = 7; 
     reg [3:0] state;
     reg [2:0] r_cnt; // 行计数
     reg [2:0] c_cnt; // 列计数
