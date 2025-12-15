@@ -76,6 +76,33 @@ reg [3:0] matrix_opr_2_r2;
 reg [3:0] matrix_opr_2_c2;
 reg [DATA_WIDTH-1:0] scalar_value;
 
+// 显示模块与存储模块的接口信号
+    wire info_busy;
+    wire [2:0] info_req_row;
+    wire [2:0] info_req_col;
+    wire uart_tx_start_info;
+    wire [7:0] uart_tx_data_info;
+    wire [2:0] scale_matrix_cnt; // 对应存储模块的 scale_matrix_cnt 输出
+
+// --- Search Displayer 相关信号 ---
+wire        disp_busy;
+wire [2:0]  disp_req_row;
+wire [2:0]  disp_req_col;
+wire [2:0]  disp_req_idx;
+wire [7:0]  disp_tx_data;
+wire        disp_tx_start;
+
+// 扁平化的读取数据，用于传给 displayer
+wire [25*DATA_WIDTH-1:0] storage_data_flat;
+// 将 storage_output_data (array) 打包成 flat vector
+// 假设 storage_output_data[0] 对应低位
+genvar k;
+generate
+    for (k=0; k<25; k=k+1) begin : pack_data
+        assign storage_data_flat[k*DATA_WIDTH +: DATA_WIDTH] = storage_output_data[k];
+    end
+endgenerate
+
 // ========================== 2. 解决多驱动问题的核心修改 ==========================
 
 // 最终聚合的运算结果 (Reg类型，由Mux驱动)
@@ -149,7 +176,7 @@ uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_rx (
 
 uart_tx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_tx (
     .clk(clk), .rst_n(rst_n),
-    .tx_start(tx_start), .tx_data(tx_data), .tx(uart_tx), .tx_busy(tx_busy)
+    .tx_start( disp_busy ? disp_tx_start : tx_start ), .tx_data( disp_busy ? disp_tx_data  : tx_data  ), .tx(uart_tx), .tx_busy(tx_busy)
 );
 
 key_debounce u_keydebounce1 (
@@ -197,7 +224,9 @@ multi_matrix_storage #(
     .data_in_18(storage_input_data[18]),.data_in_19(storage_input_data[19]),.data_in_20(storage_input_data[20]),
     .data_in_21(storage_input_data[21]),.data_in_22(storage_input_data[22]),.data_in_23(storage_input_data[23]),
     .data_in_24(storage_input_data[24]),
-    .req_scale_row(req_scale_row), .req_scale_col(req_scale_col), .req_idx(req_index),           
+    .req_scale_row( disp_busy ? disp_req_row : req_scale_row ), 
+    .req_scale_col( disp_busy ? disp_req_col : req_scale_col ), 
+    .req_idx      ( disp_busy ? disp_req_idx : req_index ),         
     .scale_matrix_cnt(num),
     .matrix_data_0(storage_output_data[0]), .matrix_data_1(storage_output_data[1]), .matrix_data_2(storage_output_data[2]),
     .matrix_data_3(storage_output_data[3]), .matrix_data_4(storage_output_data[4]), .matrix_data_5(storage_output_data[5]),
@@ -430,6 +459,52 @@ segment_display u_segment_display(
     .tub_sel1(seg_cs_pin[0]), .tub_sel2(seg_cs_pin[1]), .tub_sel3(seg_cs_pin[2]), .tub_sel4(seg_cs_pin[3]),
     .tub_sel5(seg_cs_pin[4]), .tub_sel6(seg_cs_pin[5]), .tub_sel7(seg_cs_pin[6]), .tub_sel8(seg_cs_pin[7]),
     .tub_control1(seg_data_0_pin), .tub_control2(seg_data_1_pin)
+);
+
+//matrix_info_display
+matrix_info_display #(
+        .MAX_SIZE(MAX_SIZE)
+    ) u_matrix_info (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start_req(start_display_pulse), // 生成一个开始脉冲（例如按下确认键且模式匹配时）
+        .busy(info_busy),
+        .uart_tx_busy(uart_tx_busy),     // 连接现有的 uart_tx_busy
+        .uart_tx_start(uart_tx_start_info),
+        .uart_tx_data(uart_tx_data_info),
+        .qry_row(info_req_row),
+        .qry_col(info_req_col),
+        .qry_cnt(scale_matrix_cnt)       // 连接存储模块的计数输出
+    );
+
+// matrix_search_displayer
+matrix_search_displayer #(
+    .MAX_MATRICES(MAX_MATRIX_PER_SIZE), // 使用 top4 定义的参数
+    .DATA_WIDTH(DATA_WIDTH)             // 传入 9
+) u_search_displayer (
+    .clk(clk),
+    .rst_n(rst_n),
+    .start(start_display_pulse),        // 连接你的触发信号
+    .busy(disp_busy),
+    
+    // 设置想要搜索的目标维度，这里示例为手动输入的 wr_row/col 
+    // 或者你可以连接特定的寄存器，比如 req_scale_row
+    .target_row(req_scale_row), // 使用用户当前设置的查询行
+    .target_col(req_scale_col), // 使用用户当前设置的查询列
+    
+    // Storage 接口 (输出到 MUX)
+    .req_scale_row(disp_req_row),
+    .req_scale_col(disp_req_col),
+    .req_idx(disp_req_idx),
+    
+    // Storage 接口 (输入)
+    .scale_matrix_cnt(num[2:0]), // num 是 4bit，截取低3位或确保匹配
+    .read_data(storage_data_flat),
+    
+    // UART 接口
+    .tx_data(disp_tx_data),
+    .tx_start(disp_tx_start),
+    .tx_busy(tx_busy)
 );
 
 // 缓存
