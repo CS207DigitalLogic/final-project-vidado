@@ -1,4 +1,4 @@
-module top2 #(
+module top33 #(
     parameter DATA_WIDTH          = 9,        // 数据位宽
     parameter MAX_SIZE            = 5,        // 单个矩阵最大规模（1~5）
     parameter MATRIX_NUM          = 8,        // 全局最大矩阵数量
@@ -516,370 +516,189 @@ always @(*) begin
     endcase
 end
 
-// ========================== 6. 状态机主逻辑 ==========================
+// ========================== 6. 状态机逻辑实现 ==========================
 
-integer i;
+// 1Hz 脉冲产生逻辑 (用于倒计时)
+reg [31:0] clk_div_cnt;
+reg clk_1hz;
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        clk_div_cnt <= 0;
+        clk_1hz <= 0;
+    end else if (clk_div_cnt >= CLK_FREQ - 1) begin
+        clk_div_cnt <= 0;
+        clk_1hz <= 1;
+    end else begin
+        clk_div_cnt <= clk_div_cnt + 1;
+        clk_1hz <= 0;
+    end
+end
 
-// 新增：UART接收数据暂存寄存器（关键修改）
-reg [7:0] rx_buf;
-
+// 状态机主逻辑
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         state <= S_IDLE;
         sub_state <= 0;
-        mat_select_state <= 0;
-        wr_en_reg <= 0;
-        write_flag <= 0;
         led_error_status <= 0;
-        uart_send_flag <= 0;
+        error_timer <= 8'd10;  // 默认10秒
+        timer_config <= 8'd10;
         add_en <= 0; scalar_en <= 0; trans_en <= 0; mult_en <= 0; conv_en <= 0;
-        seconds <= 0; sec_cnt <= 0;
-        gen_matrix_cnt <= 0;
-        selected_op_type <= 0;
-        selected_mat_index <= 0;
-        scalar_value_reg <= 0;
-        timer_config <= 10;
-        error_timer <= 0;
-        compute_cnt <= 0;
-        uart_buf_ptr <= 0; uart_byte_cnt <= 0;
-        rand_gen_en <= 0; rand_row <= 0; rand_col <= 0;
-        min_val <= 0; max_val <= 9;
         display_start <= 0;
-        rx_buf <= 0; // 初始化UART暂存寄存器
-        menuState <= 12'd440;
-        // 初始化 storage inputs
-        for (i=0; i<25; i=i+1) storage_input_data[i] <= 0;
-        
+        wr_en_reg <= 0;
+        menuState <= 12'h000;
+        selected_op_type <= 0;
+        compute_cnt <= 0;
     end else begin
-        // 默认信号复位
-        display_start <= 0; 
-        
-        // 在 RX Handler 模式下，实时将 wire 数据锁存到 input reg 中
-        if (state == S_INPUT_MAT) begin
-            wr_row <= rx_handler_row;
-            wr_col <= rx_handler_col;
-            for (i=0; i<25; i=i+1) storage_input_data[i] <= {1'b0, rx_handler_data[i]};
-            display_row <= 1; display_col <= 1; matrix_display_data[0] <= 4; display_start <= 1;
-        end
+        // 默认拉低使能信号
+        display_start <= 0;
+        wr_en_reg <= 0;
 
         case (state)
+            // 2.2.1 初始闲置状态
             S_IDLE: begin
                 state <= S_MAIN_MENU;
-                menuState <= 12'd300;
-                display_row <= 1; display_col <= 1; matrix_display_data[0] <= 1; display_start <= 1;
             end
-            
+
+            // 主菜单：根据 sw_mode 选择模式
             S_MAIN_MENU: begin
+                led_error_status <= 0;
+                menuState <= {9'b0, sw_mode}; // 数码管显示当前模式编号
                 if (btn_confirm_pulse) begin
                     case (sw_mode)
-                        3'b000: begin
-                            state <= S_INPUT_MAT;
-                            display_row <= 1; display_col <= 1; matrix_display_data[0] <= 2; display_start <= 1;
-                            menuState <= 12'd100;
-                        end
-                        3'b001: begin
-                            state <= S_GEN_MAT;
-                            display_row <= 1; display_col <= 1; matrix_display_data[0] <= 3; display_start <= 1;
-                            menuState <= 12'd200;
-                        end
-                        3'b010: begin
-                            state <= S_DISP_MAT;
-                            display_row <= 1; display_col <= 1; matrix_display_data[0] <= 4; display_start <= 1;
-                            menuState <= 12'd300;
-                        end
-                        3'b011: begin
-                            state <= S_OPER_MENU;
-                            display_row <= 1; display_col <= 1; matrix_display_data[0] <= 5; display_start <= 1;
-                            menuState <= 12'd400;
-                        end
+                        3'b000: state <= S_INPUT_MAT; // 输入模式
+                        3'b001: state <= S_GEN_MAT;   // 随机生成
+                        3'b010: state <= S_OPER_MENU;  // 运算模式
+                        3'b011: state <= S_DISP_MAT;  // 存储查看
                         default: state <= S_MAIN_MENU;
                     endcase
-                end
-            end
-            
-            S_INPUT_MAT: begin
-                if (btn_return_pulse) begin
-                    state <= S_MAIN_MENU;
-                end else begin
-                    // 等待 RX Handler 完成并给出 pulse
-                    if (rx_handler_done) begin
-                        display_row <= 1; display_col <= 1; matrix_display_data[0] <= 5; display_start <= 1;
-                        state <= S_MAIN_MENU;
-                    end
-                end
-            end
-            
-            S_GEN_MAT: begin
-                if (btn_return_pulse) begin
-                    state <= S_MAIN_MENU;
                     sub_state <= 0;
-                    led_error_status <= 0;
-                end else begin
-                    case (sub_state)
-                        0: begin // 等待输入矩阵行数m（修改：先存UART数据，按确认键切换）
-                            // 1. 接收UART数据并暂存
-                            if (rx_done && rx_data >= "0" && rx_data <= "5") begin
-                                rx_buf <= rx_data;
-                            end
-                            // 2. 按确认键后使用数据并切换状态
-                            if (btn_confirm_pulse) begin
-                                rand_row <= rx_buf - "0";
-                                display_row <= 1; display_col <= 3; 
-                                matrix_display_data[0] <= 2; matrix_display_data[1] <=1; matrix_display_data[2] <= rx_buf - "0"; 
-                                display_start <= 1;
-                                sub_state <= 1;
-                                menuState <= 12'd410;
-                            end
-                        end
-                        1: begin // 等待输入矩阵列数n（修改：先存UART数据，按确认键切换）
-                            // 1. 接收UART数据并暂存
-                            if (rx_done && rx_data >= "0" && rx_data <= "5") begin
-                                rx_buf <= rx_data;
-                            end
-                            // 2. 按确认键后使用数据并切换状态
-                            if (btn_confirm_pulse) begin
-                                rand_col <= rx_buf - "0";
-                                display_row <= 1; display_col <= 3; 
-                                matrix_display_data[0] <= 2; matrix_display_data[1] <=2; matrix_display_data[2] <= rx_buf - "0"; 
-                                display_start <= 1;
-                                sub_state <= 2;
-                                menuState <= 12'd420;
-                            end
-                        end
-                        2: begin // 等待输入要生成的矩阵个数（修改：先存UART数据，按确认键切换）
-                            // 1. 接收UART数据并暂存
-                            if (rx_done && rx_data >= "1" && rx_data <= "2") begin
-                                rx_buf <= rx_data;
-                            end
-                            // 2. 按确认键后使用数据并切换状态
-                            if (btn_confirm_pulse) begin
-                                gen_matrix_cnt <= rx_buf - "0";
-                                display_row <= 1; display_col <= 3; 
-                                matrix_display_data[0] <= 2; matrix_display_data[1] <=3; matrix_display_data[2] <= rx_buf - "0"; 
-                                display_start <= 1;
-                                sub_state <= 3;
-                                menuState <= 12'd430;
-                            end
-                        end
-                        3: begin // 启动随机矩阵生成
-                            menuState <= 440;
-                            rand_gen_en <= 1;
-                            sub_state <= 4;
-                            display_row <= 1; display_col <= 3; 
-                            matrix_display_data[0] <= 2; matrix_display_data[1] <=4; matrix_display_data[2] <=8; 
-                            display_start <= 1;
-                        end
-                        4: begin // 等待生成完成
-                            menuState <= 450;
-                            display_row <= 1; display_col <= 3; 
-                            matrix_display_data[0] <= 2; matrix_display_data[1] <=4; matrix_display_data[2] <=5; 
-                            display_start <= 1;
-                            if (rand_update_done) begin
-                                // 锁存数据
-                                for (i=0; i<25; i=i+1) storage_input_data[i] <= rand_data[i];
-                                write_flag <= 1;
-                                wr_row <= rand_row;
-                                wr_col <= rand_col;
-                                sub_state <= 5; 
-                                wr_en_reg <= 1; // 拉高写使能
-                                display_row <= 1; display_col <= 3; 
-                                matrix_display_data[0] <= 2; matrix_display_data[1] <=4; matrix_display_data[2] <=0 ; 
-                                display_start <= 1;
-                            end
-                        end
-                        5: begin // 拉高写使能，完成写入
-                            menuState <= 460;
-                            wr_en_reg <= 1;
-                            if (write_flag) begin
-                                write_flag <= 0;
-                                gen_matrix_cnt <= gen_matrix_cnt - 1;
-                                if (gen_matrix_cnt == 1) begin
-                                    sub_state <= 0;
-                                    state <= S_MAIN_MENU;
-                                    display_row <= 1; display_col <= 3; 
-                                    matrix_display_data[0] <= 2; matrix_display_data[1] <=5; matrix_display_data[2] <=1 ; 
-                                    display_start <= 1;
-                                end else begin
-                                    sub_state <= 3; // 生成下一个
-                                    display_row <= 1; display_col <= 3; 
-                                    matrix_display_data[0] <= 2; matrix_display_data[1] <=5; matrix_display_data[2] <=0 ; 
-                                    display_start <= 1;
-                                end
-                            end
-                        end
-                        default: sub_state <= 0;
-                    endcase
                 end
             end
-            
-            S_DISP_MAT: begin
-                if (btn_return_pulse) begin
+
+            // 2.2.1 & 2.2.3 矩阵输入与存储
+            S_INPUT_MAT: begin
+                // rx_handler 内部已处理维度检测与 0 填充逻辑 
+                if (rx_handler_done) begin
+                    // 若 rx_handler 检测到维度超出 1~5 或数值 > 9，会触发报错
+                    // 存储模块 multi_matrix_storage 自动处理覆盖逻辑 
                     state <= S_MAIN_MENU;
-                end else begin
-                    state <= S_MAIN_MENU;
-                end
-            end
-            
-            S_OPER_MENU: begin
-                if (btn_confirm_pulse) begin
-                    case (sw_mode)
-                        3'b000: begin state <= S_OPER_TRANS; selected_op_type <= 1; menuState <= 410; end
-                        3'b001: begin state <= S_OPER_ADD;   selected_op_type <= 2; menuState <= 420; end
-                        3'b010: begin state <= S_OPER_SCALE; selected_op_type <= 3; menuState <= 440; end
-                        3'b011: begin state <= S_OPER_MULT;  selected_op_type <= 4; menuState <= 450; end
-                        3'b100: begin state <= S_OPER_CONV;  selected_op_type <= 5; menuState <= 460; end
-                        default: state <= S_OPER_MENU;
-                    endcase
                 end
                 if (btn_return_pulse) state <= S_MAIN_MENU;
             end
-            
-            S_OPER_TRANS, S_OPER_ADD, S_OPER_SCALE, S_OPER_MULT, S_OPER_CONV: begin
-                state <= S_SELECT_OP1;
-                mat_select_state <= 0;
-            end
-            
-            S_SELECT_OP1: begin
-                case (mat_select_state)
-                    0: begin 
-                        uart_buffer[0] <= "m"; uart_buffer[1] <= ":"; uart_buf_ptr <= 2; uart_send_flag <= 1;
-                        mat_select_state <= 1;
+
+            // 2.2.2 随机生成逻辑
+            S_GEN_MAT: begin
+                case (sub_state)
+                    0: begin // 用户输入维度 m, n 和个数 (通过 sw_mode 模拟)
+                        rand_row <= sw_mode + 1;
+                        rand_col <= sw_mode + 1; 
+                        min_val <= 8'd0;
+                        max_val <= 8'd9;
+                        if (btn_confirm_pulse) sub_state <= 1;
                     end
-                    1: begin // 输入矩阵行数m（修改：先存UART数据，按确认键切换）
-                        // 1. 接收UART数据并暂存
-                        if (rx_done && rx_data >= "0" && rx_data <= "5") begin
-                            rx_buf <= rx_data;
-                        end
-                        // 2. 按确认键后使用数据并切换状态
-                        if (btn_confirm_pulse) begin
-                            req_scale_row <= rx_buf - "0";
-                            mat_select_state <= 2;
+                    1: begin // 触发随机数生成器 [cite: 10]
+                        rand_gen_en <= 1;
+                        if (rand_update_done) begin
+                            rand_gen_en <= 0;
+                            sub_state <= 2;
                         end
                     end
-                    2: begin 
-                        uart_buffer[0] <= "n"; uart_buffer[1] <= ":"; uart_buf_ptr <= 2; uart_send_flag <= 1;
-                        mat_select_state <= 3;
-                    end
-                    3: begin // 输入矩阵列数n（修改：先存UART数据，按确认键切换）
-                        // 1. 接收UART数据并暂存
-                        if (rx_done && rx_data >= "0" && rx_data <= "5") begin
-                            rx_buf <= rx_data;
-                        end
-                        // 2. 按确认键后使用数据并切换状态
-                        if (btn_confirm_pulse) begin
-                            req_scale_col <= rx_buf - "0";
-                            mat_select_state <= 4;
-                        end
-                    end
-                    4: begin 
-                        req_index <= 0;
-                        mat_select_state <= 5;
-                    end
-                    5: begin 
-                        mat_select_state <= 6;
-                    end
-                    6: begin // 输入矩阵索引（修改：先存UART数据，按确认键切换）
-                        // 1. 接收UART数据并暂存
-                        if (rx_done && rx_data >= "0" && rx_data <= "9") begin
-                            rx_buf <= rx_data;
-                        end
-                        // 2. 按确认键后使用数据并切换状态
-                        if (btn_confirm_pulse) begin
-                            selected_mat_index <= rx_buf - "0";
-                            req_index <= rx_buf - "0"; 
-                            mat_select_state <= 7;
-                        end
-                    end
-                    7: begin 
-                        for(i=0; i<25; i=i+1) matrix_opr_1[i] <= storage_output_data[i]; 
-                        matrix_opr_1_r1 <= output_matrix_row;
-                        matrix_opr_1_c1 <= output_matrix_col;
-                        
-                        if (selected_op_type == 1 || selected_op_type == 5) state <= S_COMPUTE; 
-                        else if (selected_op_type == 3) begin state <= S_SELECT_OP2; mat_select_state <= 0; end 
-                        else begin state <= S_SELECT_OP2; mat_select_state <= 0; end 
+                    2: begin // 写入存储器
+                        for (k=0; k<25; k=k+1) storage_input_data[k] <= rand_data[k];
+                        wr_row <= rand_row;
+                        wr_col <= rand_col;
+                        wr_en_reg <= 1; // 触发 Storage 写入
+                        state <= S_MAIN_MENU;
                     end
                 endcase
             end
-            
-            S_SELECT_OP2: begin
-                if (selected_op_type == 3) begin // 标量乘法
-                    case (mat_select_state)
-                        0: begin
-                            mat_select_state <= 1;
-                        end
-                        1: begin // 输入标量值（修改：先存UART数据，按确认键切换）
-                            // 1. 接收UART数据并暂存
-                            if (rx_done && rx_data >= "0" && rx_data <= "9") begin
-                                rx_buf <= rx_data;
-                            end
-                            // 2. 按确认键后使用数据并切换状态
-                            if (btn_confirm_pulse) begin
-                                scalar_value_reg <= rx_buf - "0";
+
+            // 2.4.1 运算类型选择
+            S_OPER_MENU: begin
+                case (sw_mode)
+                    3'b000: begin menuState <= 12'h514; selected_op_type <= 1; end // 'T' Transpose
+                    3'b001: begin menuState <= 12'h411; selected_op_type <= 2; end // 'A' Add
+                    3'b010: begin menuState <= 12'h422; selected_op_type <= 3; end // 'B' Scale
+                    3'b011: begin menuState <= 12'h433; selected_op_type <= 4; end // 'C' Mult
+                    3'b100: begin menuState <= 12'h410; selected_op_type <= 5; end // 'J' Conv
+                endcase
+                if (btn_confirm_pulse) state <= S_SELECT_OP1;
+                if (btn_return_pulse) state <= S_MAIN_MENU;
+            end
+
+            // 2.4.3 选择第一个运算数
+            S_SELECT_OP1: begin
+                case (sub_state)
+                    0: begin // 输入维度 m, n
+                        req_scale_row <= sw_mode + 1;
+                        req_scale_col <= sw_mode + 1;
+                        if (btn_confirm_pulse) sub_state <= 1;
+                    end
+                    1: begin // 选择索引 idx
+                        req_index <= sw_mode[1:0]; // 对应 MAX_MATRIX_PER_SIZE 
+                        if (btn_confirm_pulse) begin
+                            for (k=0; k<25; k=k+1) matrix_opr_1[k] <= storage_output_data[k];
+                            matrix_opr_1_r1 <= output_matrix_row;
+                            matrix_opr_1_c1 <= output_matrix_col;
+                            
+                            if (selected_op_type == 2 || selected_op_type == 4) begin
+                                state <= S_SELECT_OP2; sub_state <= 0;
+                            end else if (selected_op_type == 3) begin
+                                state <= S_OPER_SCALE;
+                            end else begin
                                 state <= S_COMPUTE;
                             end
                         end
-                    endcase
-                end else begin // 矩阵加法/乘法
-                    case (mat_select_state)
-                        0: begin mat_select_state <= 1; end 
-                        1: begin // 输入第二个矩阵行数m（修改：先存UART数据，按确认键切换）
-                            // 1. 接收UART数据并暂存
-                            if (rx_done && rx_data >= "0" && rx_data <= "5") begin
-                                rx_buf <= rx_data;
-                            end
-                            // 2. 按确认键后使用数据并切换状态
-                            if (btn_confirm_pulse) begin
-                                req_scale_row <= rx_buf - "0";
-                                mat_select_state <= 2;
-                            end
-                        end
-                        2: begin mat_select_state <= 3; end
-                        3: begin // 输入第二个矩阵列数n（修改：先存UART数据，按确认键切换）
-                            // 1. 接收UART数据并暂存
-                            if (rx_done && rx_data >= "0" && rx_data <= "5") begin
-                                rx_buf <= rx_data;
-                            end
-                            // 2. 按确认键后使用数据并切换状态
-                            if (btn_confirm_pulse) begin
-                                req_scale_col <= rx_buf - "0";
-                                mat_select_state <= 4;
-                            end
-                        end
-                        4: begin req_index <= 0; mat_select_state <= 5; end
-                        5: begin mat_select_state <= 6; end
-                        6: begin // 输入第二个矩阵索引（修改：先存UART数据，按确认键切换）
-                            // 1. 接收UART数据并暂存
-                            if (rx_done && rx_data >= "0" && rx_data <= "9") begin
-                                rx_buf <= rx_data;
-                            end
-                            // 2. 按确认键后使用数据并切换状态
-                            if (btn_confirm_pulse) begin
-                                selected_mat_index <= rx_buf - "0"; 
-                                req_index <= rx_buf - "0"; 
-                                mat_select_state <= 7; 
-                            end 
-                        end
-                        7: begin
-                            for(i=0; i<25; i=i+1) matrix_opr_2[i] <= storage_output_data[i];
-                            matrix_opr_2_r2 <= output_matrix_row;
-                            matrix_opr_2_c2 <= output_matrix_col;
-                            if (selected_op_type == 2) begin // 加法
-                                if (matrix_opr_1_r1 == output_matrix_row && matrix_opr_1_c1 == output_matrix_col) 
-                                    state <= S_COMPUTE;
-                                else begin state <= S_ERROR_TIMER; error_timer <= timer_config; end
-                            end else if (selected_op_type == 4) begin // 乘法
-                                if (matrix_opr_1_c1 == output_matrix_row)
-                                    state <= S_COMPUTE;
-                                else begin state <= S_ERROR_TIMER; error_timer <= timer_config; end
+                    end
+                endcase
+            end
+
+            // 选择第二个运算数并进行判定
+            S_SELECT_OP2: begin
+                case (sub_state)
+                    0: begin
+                        req_scale_row <= sw_mode + 1;
+                        req_scale_col <= sw_mode + 1;
+                        if (btn_confirm_pulse) sub_state <= 1;
+                    end
+                    1: begin
+                        req_index <= sw_mode[1:0];
+                        if (btn_confirm_pulse) begin
+                            // 判定运算数合法性
+                            if (selected_op_type == 2 && (matrix_opr_1_r1 != output_matrix_row || matrix_opr_1_c1 != output_matrix_col)) begin
+                                state <= S_ERROR_TIMER; error_timer <= timer_config;
+                            end else if (selected_op_type == 4 && (matrix_opr_1_c1 != output_matrix_row)) begin
+                                state <= S_ERROR_TIMER; error_timer <= timer_config;
+                            end else begin
+                                for (k=0; k<25; k=k+1) matrix_opr_2[k] <= storage_output_data[k];
+                                matrix_opr_2_r2 <= output_matrix_row;
+                                matrix_opr_2_c2 <= output_matrix_col;
+                                state <= S_COMPUTE;
                             end
                         end
-                    endcase
+                    end
+                endcase
+            end
+
+            // 2.4.3.1.2) b) 报错倒计时逻辑
+            S_ERROR_TIMER: begin
+                led_error_status <= 1;
+                menuState <= {4'hE, 4'h0, error_timer[3:0]}; // 数码管显示 E 和倒计时
+                if (clk_1hz && error_timer > 0) error_timer <= error_timer - 1;
+                
+                if (error_timer == 0) begin
+                    led_error_status <= 0;
+                    state <= S_SELECT_OP1; sub_state <= 0;
+                end
+                // 倒计时内按下确认可立即重试
+                if (btn_confirm_pulse) begin
+                    led_error_status <= 0;
+                    state <= S_SELECT_OP1; sub_state <= 0;
                 end
             end
-            
+
+            // 执行运算运算
             S_COMPUTE: begin
-                add_en <= 0; scalar_en <= 0; trans_en <= 0; mult_en <= 0; conv_en <= 0;
                 case (selected_op_type)
                     1: trans_en <= 1;
                     2: add_en <= 1;
@@ -887,43 +706,28 @@ always @(posedge clk or negedge rst_n) begin
                     4: mult_en <= 1;
                     5: conv_en <= 1;
                 endcase
-                state <= S_DISPLAY_RES;
+
+                if (calc_busy) compute_cnt <= 1;
+                else if (compute_cnt == 1) begin
+                    add_en <= 0; scalar_en <= 0; trans_en <= 0; mult_en <= 0; conv_en <= 0;
+                    compute_cnt <= 0;
+                    state <= S_DISPLAY_RES;
+                end
             end
-            
+
+            // 2.3 & 2.4.4 展示结果
             S_DISPLAY_RES: begin
-                // 拉低使能
-                add_en <= 0; scalar_en <= 0; trans_en <= 0; mult_en <= 0; conv_en <= 0;
-                
-                // 等待用户确认后显示结果
-                if (btn_confirm_pulse) begin
-                    // 数据已由 MUX 实时更新到 matrix_ans 中，无需再次手动循环赋值
-                    // 但显示模块需要 input，这里我们利用 matrix_display_data 寄存器中转
-                    for(i=0; i<25; i=i+1) matrix_display_data[i] <= matrix_ans[i];
-                    
+                if (!display_busy && !display_start) begin
+                    // 从 matrix_ans MUX 中加载计算结果 
+                    for (k=0; k<25; k=k+1) matrix_display_data[k] <= matrix_ans[k];
                     display_row <= matrix_ans_r_out;
                     display_col <= matrix_ans_c_out;
-                    
-                    display_start <= 1; 
+                    display_start <= 1; // 触发 matrix_displayer 
                 end
-                
                 if (btn_return_pulse) state <= S_MAIN_MENU;
             end
-            
-            S_ERROR_TIMER: begin
-                led_error_status <= 1;
-                if (sec_cnt == CLK_FREQ - 1) begin
-                    sec_cnt <= 0;
-                    if (error_timer > 0) error_timer <= error_timer - 1;
-                    else begin
-                        led_error_status <= 0;
-                        state <= S_MAIN_MENU; 
-                    end
-                end else sec_cnt <= sec_cnt + 1;
-                
-                if (rx_done) error_timer <= timer_config; 
-            end
-            
-            default: state <= S_MAIN_MENU;
+
+            default: state <= S_IDLE;
         endcase
     end
 end
