@@ -343,33 +343,13 @@ module matrix_transpose #(
                 transpose_data_15 <= 0; transpose_data_16 <= 0; transpose_data_17 <= 0; transpose_data_18 <= 0; transpose_data_19 <= 0;
                 transpose_data_20 <= 0; transpose_data_21 <= 0; transpose_data_22 <= 0; transpose_data_23 <= 0; transpose_data_24 <= 0;
                 // 重置输出数据
-                r_out = 0;
-                c_out = 0;
-                data_out_0 = 0;
-                data_out_1 = 0;
-                data_out_2 = 0;
-                data_out_3 = 0;
-                data_out_4 = 0;
-                data_out_5 = 0;
-                data_out_6 = 0;
-                data_out_7 = 0;
-                data_out_8 = 0;
-                data_out_9 = 0;
-                data_out_10 = 0;
-                data_out_11 = 0;
-                data_out_12 = 0;
-                data_out_13 = 0;
-                data_out_14 = 0;
-                data_out_15 = 0;
-                data_out_16 = 0;
-                data_out_17 = 0;
-                data_out_18 = 0;
-                data_out_19 = 0;
-                data_out_20 = 0;
-                data_out_21 = 0;
-                data_out_22 = 0;
-                data_out_23 = 0;
-                data_out_24 = 0;
+                r_out <= 0;
+                c_out <= 0;
+                data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
+                data_out_5 <= 0; data_out_6 <= 0; data_out_7 <= 0; data_out_8 <= 0; data_out_9 <= 0;
+                data_out_10 <= 0; data_out_11 <= 0; data_out_12 <= 0; data_out_13 <= 0; data_out_14 <= 0;
+                data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
+                data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
             end else if (en && isRestored) begin
                 if (busy && count < 1) begin
                     count <= count + 1;
@@ -429,31 +409,31 @@ module matrix_transpose #(
         end
         else if(isRestored) begin
             // restore完成后，将输出连接到restore后的数据
-            data_out_0 = restored_data_0;
-            data_out_1 = restored_data_1;
-            data_out_2 = restored_data_2;
-            data_out_3 = restored_data_3;
-            data_out_4 = restored_data_4;
-            data_out_5 = restored_data_5;
-            data_out_6 = restored_data_6;
-            data_out_7 = restored_data_7;
-            data_out_8 = restored_data_8;
-            data_out_9 = restored_data_9;
-            data_out_10 = restored_data_10;
-            data_out_11 = restored_data_11;
-            data_out_12 = restored_data_12;
-            data_out_13 = restored_data_13;
-            data_out_14 = restored_data_14;
-            data_out_15 = restored_data_15;
-            data_out_16 = restored_data_16;
-            data_out_17 = restored_data_17;
-            data_out_18 = restored_data_18;
-            data_out_19 = restored_data_19;
-            data_out_20 = restored_data_20;
-            data_out_21 = restored_data_21;
-            data_out_22 = restored_data_22;
-            data_out_23 = restored_data_23;
-            data_out_24 = restored_data_24;
+            data_out_0 <= restored_data_0;
+            data_out_1 <= restored_data_1;
+            data_out_2 <= restored_data_2;
+            data_out_3 <= restored_data_3;
+            data_out_4 <= restored_data_4;
+            data_out_5 <= restored_data_5;
+            data_out_6 <= restored_data_6;
+            data_out_7 <= restored_data_7;
+            data_out_8 <= restored_data_8;
+            data_out_9 <= restored_data_9;
+            data_out_10 <= restored_data_10;
+            data_out_11 <= restored_data_11;
+            data_out_12 <= restored_data_12;
+            data_out_13 <= restored_data_13;
+            data_out_14 <= restored_data_14;
+            data_out_15 <= restored_data_15;
+            data_out_16 <= restored_data_16;
+            data_out_17 <= restored_data_17;
+            data_out_18 <= restored_data_18;
+            data_out_19 <= restored_data_19;
+            data_out_20 <= restored_data_20;
+            data_out_21 <= restored_data_21;
+            data_out_22 <= restored_data_22;
+            data_out_23 <= restored_data_23;
+            data_out_24 <= restored_data_24;
             
             // 关闭restore使能
             restore_en <= 0;
