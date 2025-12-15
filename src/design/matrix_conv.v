@@ -219,33 +219,33 @@ module matrix_conv#(
     integer addr_r2_c0, addr_r2_c1, addr_r2_c2;
     // === 组合逻辑：从ROM提取当前3×3窗口 ===
     always @(row_start_idx, col_start_idx) begin
-        base_addr = row_start_idx * 12 + col_start_idx;  // ROM是12列宽的
+        base_addr <= row_start_idx * 12 + col_start_idx;  // ROM是12列宽的
         
         // 第一行三个元素
-        addr_r0_c0 = base_addr;
-        addr_r0_c1 = base_addr + 1;
-        addr_r0_c2 = base_addr + 2;
+        addr_r0_c0 <= base_addr;
+        addr_r0_c1 <= base_addr + 1;
+        addr_r0_c2 <= base_addr + 2;
         
         // 第二行三个元素（向下移动一行）
-        addr_r1_c0 = base_addr + 12;
-        addr_r1_c1 = base_addr + 12 + 1;
-        addr_r1_c2 = base_addr + 12 + 2;
+        addr_r1_c0 <= base_addr + 12;
+        addr_r1_c1 <= base_addr + 12 + 1;
+        addr_r1_c2 <= base_addr + 12 + 2;
         
         // 第三行三个元素（再向下移动一行）
-        addr_r2_c0 = base_addr + 24;
-        addr_r2_c1 = base_addr + 24 + 1;
-        addr_r2_c2 = base_addr + 24 + 2;
+        addr_r2_c0 <= base_addr + 24;
+        addr_r2_c1 <= base_addr + 24 + 1;
+        addr_r2_c2 <= base_addr + 24 + 2;
         
         // 从ROM读取值
-        rom_window_0 = rom[addr_r0_c0];
-        rom_window_1 = rom[addr_r0_c1];
-        rom_window_2 = rom[addr_r0_c2];
-        rom_window_3 = rom[addr_r1_c0];
-        rom_window_4 = rom[addr_r1_c1];
-        rom_window_5 = rom[addr_r1_c2];
-        rom_window_6 = rom[addr_r2_c0];
-        rom_window_7 = rom[addr_r2_c1];
-        rom_window_8 = rom[addr_r2_c2];
+        rom_window_0 <= rom[addr_r0_c0];
+        rom_window_1 <= rom[addr_r0_c1];
+        rom_window_2 <= rom[addr_r0_c2];
+        rom_window_3 <= rom[addr_r1_c0];
+        rom_window_4 <= rom[addr_r1_c1];
+        rom_window_5 <= rom[addr_r1_c2];
+        rom_window_6 <= rom[addr_r2_c0];
+        rom_window_7 <= rom[addr_r2_c1];
+        rom_window_8 <= rom[addr_r2_c2];
     end
     
     // === 时序控制逻辑 ===

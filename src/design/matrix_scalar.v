@@ -309,46 +309,46 @@ module matrix_scalar #(
         // 根据行计数器选择矩阵的一整行
         case(row_counter)
             3'd0: begin
-                mat_row_0 = ordered_data_0;
-                mat_row_1 = ordered_data_1;
-                mat_row_2 = ordered_data_2;
-                mat_row_3 = ordered_data_3;
-                mat_row_4 = ordered_data_4;
+                mat_row_0 <= ordered_data_0;
+                mat_row_1 <= ordered_data_1;
+                mat_row_2 <= ordered_data_2;
+                mat_row_3 <= ordered_data_3;
+                mat_row_4 <= ordered_data_4;
             end
             3'd1: begin
-                mat_row_0 = ordered_data_5;
-                mat_row_1 = ordered_data_6;
-                mat_row_2 = ordered_data_7;
-                mat_row_3 = ordered_data_8;
-                mat_row_4 = ordered_data_9;
+                mat_row_0 <= ordered_data_5;
+                mat_row_1 <= ordered_data_6;
+                mat_row_2 <= ordered_data_7;
+                mat_row_3 <= ordered_data_8;
+                mat_row_4 <= ordered_data_9;
             end
             3'd2: begin
-                mat_row_0 = ordered_data_10;
-                mat_row_1 = ordered_data_11;
-                mat_row_2 = ordered_data_12;
-                mat_row_3 = ordered_data_13;
-                mat_row_4 = ordered_data_14;
+                mat_row_0 <= ordered_data_10;
+                mat_row_1 <= ordered_data_11;
+                mat_row_2 <= ordered_data_12;
+                mat_row_3 <= ordered_data_13;
+                mat_row_4 <= ordered_data_14;
             end
             3'd3: begin
-                mat_row_0 = ordered_data_15;
-                mat_row_1 = ordered_data_16;
-                mat_row_2 = ordered_data_17;
-                mat_row_3 = ordered_data_18;
-                mat_row_4 = ordered_data_19;
+                mat_row_0 <= ordered_data_15;
+                mat_row_1 <= ordered_data_16;
+                mat_row_2 <= ordered_data_17;
+                mat_row_3 <= ordered_data_18;
+                mat_row_4 <= ordered_data_19;
             end
             3'd4: begin
-                mat_row_0 = ordered_data_20;
-                mat_row_1 = ordered_data_21;
-                mat_row_2 = ordered_data_22;
-                mat_row_3 = ordered_data_23;
-                mat_row_4 = ordered_data_24;
+                mat_row_0 <= ordered_data_20;
+                mat_row_1 <= ordered_data_21;
+                mat_row_2 <= ordered_data_22;
+                mat_row_3 <= ordered_data_23;
+                mat_row_4 <= ordered_data_24;
             end
             default: begin
-                mat_row_0 = 0;
-                mat_row_1 = 0;
-                mat_row_2 = 0;
-                mat_row_3 = 0;
-                mat_row_4 = 0;
+                mat_row_0 <= 0;
+                mat_row_1 <= 0;
+                mat_row_2 <= 0;
+                mat_row_3 <= 0;
+                mat_row_4 <= 0;
             end
         endcase
     end

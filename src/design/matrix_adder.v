@@ -407,92 +407,92 @@ module matrix_adder #(
         // 根据行计数器选择矩阵A的一整行
         case(row_counter)
             3'd0: begin
-                a_row_0 = ordered_a_0;
-                a_row_1 = ordered_a_1;
-                a_row_2 = ordered_a_2;
-                a_row_3 = ordered_a_3;
-                a_row_4 = ordered_a_4;
+                a_row_0 <= ordered_a_0;
+                a_row_1 <= ordered_a_1;
+                a_row_2 <= ordered_a_2;
+                a_row_3 <= ordered_a_3;
+                a_row_4 <= ordered_a_4;
             end
             3'd1: begin
-                a_row_0 = ordered_a_5;
-                a_row_1 = ordered_a_6;
-                a_row_2 = ordered_a_7;
-                a_row_3 = ordered_a_8;
-                a_row_4 = ordered_a_9;
+                a_row_0 <= ordered_a_5;
+                a_row_1 <= ordered_a_6;
+                a_row_2 <= ordered_a_7;
+                a_row_3 <= ordered_a_8;
+                a_row_4 <= ordered_a_9;
             end
             3'd2: begin
-                a_row_0 = ordered_a_10;
-                a_row_1 = ordered_a_11;
-                a_row_2 = ordered_a_12;
-                a_row_3 = ordered_a_13;
-                a_row_4 = ordered_a_14;
+                a_row_0 <= ordered_a_10;
+                a_row_1 <= ordered_a_11;
+                a_row_2 <= ordered_a_12;
+                a_row_3 <= ordered_a_13;
+                a_row_4 <= ordered_a_14;
             end
             3'd3: begin
-                a_row_0 = ordered_a_15;
-                a_row_1 = ordered_a_16;
-                a_row_2 = ordered_a_17;
-                a_row_3 = ordered_a_18;
-                a_row_4 = ordered_a_19;
+                a_row_0 <= ordered_a_15;
+                a_row_1 <= ordered_a_16;
+                a_row_2 <= ordered_a_17;
+                a_row_3 <= ordered_a_18;
+                a_row_4 <= ordered_a_19;
             end
             3'd4: begin
-                a_row_0 = ordered_a_20;
-                a_row_1 = ordered_a_21;
-                a_row_2 = ordered_a_22;
-                a_row_3 = ordered_a_23;
-                a_row_4 = ordered_a_24;
+                a_row_0 <= ordered_a_20;
+                a_row_1 <= ordered_a_21;
+                a_row_2 <= ordered_a_22;
+                a_row_3 <= ordered_a_23;
+                a_row_4 <= ordered_a_24;
             end
             default: begin
-                a_row_0 = 0;
-                a_row_1 = 0;
-                a_row_2 = 0;
-                a_row_3 = 0;
-                a_row_4 = 0;
+                a_row_0 <= 0;
+                a_row_1 <= 0;
+                a_row_2 <= 0;
+                a_row_3 <= 0;
+                a_row_4 <= 0;
             end
         endcase
         
         // 选择矩阵B的同一行
         case(row_counter)
             3'd0: begin
-                b_row_0 = ordered_b_0;
-                b_row_1 = ordered_b_1;
-                b_row_2 = ordered_b_2;
-                b_row_3 = ordered_b_3;
-                b_row_4 = ordered_b_4;
+                b_row_0 <= ordered_b_0;
+                b_row_1 <= ordered_b_1;
+                b_row_2 <= ordered_b_2;
+                b_row_3 <= ordered_b_3;
+                b_row_4 <= ordered_b_4;
             end
             3'd1: begin
-                b_row_0 = ordered_b_5;
-                b_row_1 = ordered_b_6;
-                b_row_2 = ordered_b_7;
-                b_row_3 = ordered_b_8;
-                b_row_4 = ordered_b_9;
+                b_row_0 <= ordered_b_5;
+                b_row_1 <= ordered_b_6;
+                b_row_2 <= ordered_b_7;
+                b_row_3 <= ordered_b_8;
+                b_row_4 <= ordered_b_9;
             end
             3'd2: begin
-                b_row_0 = ordered_b_10;
-                b_row_1 = ordered_b_11;
-                b_row_2 = ordered_b_12;
-                b_row_3 = ordered_b_13;
-                b_row_4 = ordered_b_14;
+                b_row_0 <= ordered_b_10;
+                b_row_1 <= ordered_b_11;
+                b_row_2 <= ordered_b_12;
+                b_row_3 <= ordered_b_13;
+                b_row_4 <= ordered_b_14;
             end
             3'd3: begin
-                b_row_0 = ordered_b_15;
-                b_row_1 = ordered_b_16;
-                b_row_2 = ordered_b_17;
-                b_row_3 = ordered_b_18;
-                b_row_4 = ordered_b_19;
+                b_row_0 <= ordered_b_15;
+                b_row_1 <= ordered_b_16;
+                b_row_2 <= ordered_b_17;
+                b_row_3 <= ordered_b_18;
+                b_row_4 <= ordered_b_19;
             end
             3'd4: begin
-                b_row_0 = ordered_b_20;
-                b_row_1 = ordered_b_21;
-                b_row_2 = ordered_b_22;
-                b_row_3 = ordered_b_23;
-                b_row_4 = ordered_b_24;
+                b_row_0 <= ordered_b_20;
+                b_row_1 <= ordered_b_21;
+                b_row_2 <= ordered_b_22;
+                b_row_3 <= ordered_b_23;
+                b_row_4 <= ordered_b_24;
             end
             default: begin
-                b_row_0 = 0;
-                b_row_1 = 0;
-                b_row_2 = 0;
-                b_row_3 = 0;
-                b_row_4 = 0;
+                b_row_0 <= 0;
+                b_row_1 <= 0;
+                b_row_2 <= 0;
+                b_row_3 <= 0;
+                b_row_4 <= 0;
             end
         endcase
     end
