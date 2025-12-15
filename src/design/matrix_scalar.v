@@ -276,13 +276,14 @@ module matrix_scalar #(
         en_delay <= order_en;  // 这里其实也是个锁存器
     end
     assign internal_en = en_delay;
-    
+    /*
     // busy状态触发器
     always@(en) begin
         if (en) begin
             busy <= 1;
         end
-    end
+    end 
+    */
     
     // === 计数器控制 ===
     reg [2:0] row_counter;  // 0-4计数器，只需计数5行
@@ -355,6 +356,7 @@ module matrix_scalar #(
     // === 时序控制逻辑 ===
     reg isCalculated;
     reg internal_busy;
+    reg isCompleted;
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             // 复位所有寄存器和输出
@@ -380,6 +382,11 @@ module matrix_scalar #(
             data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
             data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
         end else begin
+            if(en && !isCompleted) begin
+                busy <= 1;
+            end else begin
+                busy <= 0;
+            end
             if (internal_en && !internal_busy && !isCalculated) begin
                 // 开始新计算：锁存标量值和矩阵维度
                 scalar_reg <= scalar;
@@ -469,7 +476,7 @@ module matrix_scalar #(
                 data_out_24 <= restored_data_24;
                 
                 restore_en <= 0;
-                busy <= 0;
+                isCompleted <= 1;
             end else if (!en) begin
                 // 复位所有寄存器和输出
                 row_counter <= 0;
@@ -479,6 +486,7 @@ module matrix_scalar #(
                 c_out <= 0;
                 isCalculated <= 0;
                 restore_en <= 0;
+                isCompleted <= 0;
                 
                 // 复位中转数据
                 scalar_data_0 <= 0; scalar_data_1 <= 0; scalar_data_2 <= 0; scalar_data_3 <= 0; scalar_data_4 <= 0;

@@ -280,12 +280,12 @@ module matrix_transpose #(
     end
     assign transpose_en = en_delay;
     
-    // busy状态触发器
-    always@(en) begin
-        if (en) begin
-            busy <= 1;
-        end
-    end
+    // // busy状态触发器
+    // always@(en) begin
+    //     if (en) begin
+    //         busy <= 1;
+    //     end
+    // end
     
     // 重排状态判断机
     reg count;

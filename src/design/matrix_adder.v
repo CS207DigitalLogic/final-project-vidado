@@ -376,12 +376,12 @@ module matrix_adder #(
     end
     assign internal_en = en_delay;
     
-    // busy状态触发器
-    always@(en) begin
-        if (en) begin
-            busy <= 1;
-        end
-    end
+    // // busy状态触发器
+    // always@(en) begin
+    //     if (en) begin
+    //         busy <= 1;
+    //     end
+    // end
 
     // === 计数器控制 ===
     reg [2:0] row_counter;  // 0-4计数器，只需计数5行
@@ -500,6 +500,7 @@ module matrix_adder #(
     // === 时序控制逻辑 ===
     reg isCalculated;
     reg internal_busy;
+    reg isCompleted;
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             // 复位所有寄存器和输出
@@ -525,6 +526,11 @@ module matrix_adder #(
             added_data_15 <= 0; added_data_16 <= 0; added_data_17 <= 0; added_data_18 <= 0; added_data_19 <= 0;
             added_data_20 <= 0; added_data_21 <= 0; added_data_22 <= 0; added_data_23 <= 0; added_data_24 <= 0;
         end else begin
+            if(en && !isCompleted) begin
+                busy <= 1;
+            end else begin
+                busy <= 0;
+            end
             if (internal_en && !internal_busy && !isCalculated) begin
                 // 检查矩阵是否可以相加（维度必须相等）
                 if (r1 == r2 && c1 == c2) begin
@@ -623,16 +629,16 @@ module matrix_adder #(
                 data_out_24 <= restored_data_24;
                 
                 restore_en <= 0;
-                busy <= 0;
+                isCompleted <= 1;
             end else if (!en) begin
                 // 复位所有寄存器和输出
                 row_counter <= 0;
-                busy <= 0;
                 internal_busy <= 0;
                 isValid <= 1;
                 r_out <= 0;
                 c_out <= 0;
                 isCalculated <= 0;
+                isCompleted <= 0;
                 restore_en <= 0;
                 // 重置输出信号
                 data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;

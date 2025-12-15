@@ -375,14 +375,14 @@ module matrix_multiplier #(
         en_delay <= order_a_en;  // 这里其实也是个锁存器
     end
     assign internal_en = en_delay;
-    
+/*
     // busy状态触发器
     always@(en) begin
         if (en) begin
-            busy <= 1;
+            busy <= en;
         end
     end
-
+*/
     // === 计数器控制 ===
     reg [4:0] calc_counter;  // 0-24计数器
     
@@ -507,6 +507,7 @@ module matrix_multiplier #(
     // === 时序控制逻辑 ===
     reg isCalculated;
     reg internal_busy;
+    reg isCompleted;
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             // 复位所有寄存器和输出
@@ -532,6 +533,12 @@ module matrix_multiplier #(
             multiplied_data_15 <= 0; multiplied_data_16 <= 0; multiplied_data_17 <= 0; multiplied_data_18 <= 0; multiplied_data_19 <= 0;
             multiplied_data_20 <= 0; multiplied_data_21 <= 0; multiplied_data_22 <= 0; multiplied_data_23 <= 0; multiplied_data_24 <= 0;
         end else begin
+            if(en && !isCompleted) begin
+                busy <= 1;
+            end else begin
+                busy <= 0;
+            end
+
             if (internal_en && !internal_busy && !isCalculated) begin
                 if (c1 == r2) begin
                     r_out <= r1;
@@ -614,17 +621,17 @@ module matrix_multiplier #(
                 data_out_24 <= restored_data_24;
                 
                 restore_en <= 0;
-                busy <= 0;
+                isCompleted <= 1;
             end else if (!en) begin
                 // 复位所有寄存器和输出
                 calc_counter <= 0;
-                busy <= 0;
                 internal_busy <= 0;
                 isValid <= 1;
                 r_out <= 0;
                 c_out <= 0;
                 isCalculated <= 0;
                 restore_en <= 0;
+                isCompleted <= 0;
                 // 重置输出信号
                 data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
                 data_out_5 <= 0; data_out_6 <= 0; data_out_7 <= 0; data_out_8 <= 0; data_out_9 <= 0;
