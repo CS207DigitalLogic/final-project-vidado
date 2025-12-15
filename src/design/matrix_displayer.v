@@ -27,13 +27,12 @@ module matrix_displayer(
 
     // 状态机定义
     localparam S_IDLE       = 0;
-    localparam S_PREPARE    = 1; // 锁存数据
-    localparam S_SEND_DIGIT = 2; // 发送数字
-    localparam S_WAIT_DIGIT = 3; // 等待数字发完
-    localparam S_SEND_SEP   = 4; // 发送分隔符(空格或换行)
-    localparam S_WAIT_SEP   = 5; // 等待分隔符发完
-    localparam S_DONE       = 6;
-
+    localparam S_SEND_DIGIT = 1;
+    localparam S_WAIT_DIGIT = 2;
+    localparam S_SEND_SEP   = 3;
+    localparam S_WAIT_SEP   = 4;
+    localparam S_DONE       = 5; 
+    localparam S_WAIT_RELEASE = 6; 
     reg [3:0] state;
     reg [2:0] r_cnt; // 行计数
     reg [2:0] c_cnt; // 列计数
@@ -69,8 +68,10 @@ module matrix_displayer(
                 S_IDLE: begin
                     busy <= 0;
                     if (start) begin
-                        busy <= 1;
-                        state <= S_PREPARE;
+                        busy <= 1;        // 只要一开始，立马置忙
+                        r_cnt <= 0;
+                        c_cnt <= 0;
+                        state <= S_SEND_DIGIT;
                     end
                 end
 
@@ -101,6 +102,7 @@ module matrix_displayer(
                     // 等待串口忙碌起来，或者发送完成
                     // 一般这里只要发了start，下一周期tx_busy就会变高，或者我们可以简单给点延时
                     // 这里采用简单的状态跳转，因为 tx_busy 逻辑通常是立刻响应
+                    tx_start <= 1'b0;
                     state <= S_SEND_SEP;
                 end
 
@@ -119,6 +121,7 @@ module matrix_displayer(
                 end
 
                 S_WAIT_SEP: begin
+                    tx_start <= 1'b0;
                     if (!tx_busy) begin // 等待分隔符发完
                         // 更新计数器
                         if (c_cnt == matrix_col - 1) begin
@@ -138,8 +141,18 @@ module matrix_displayer(
 
                 S_DONE: begin
                     busy <= 0;
-                    state <= S_IDLE;
+                    state <= S_WAIT_RELEASE;
                 end
+
+                S_WAIT_RELEASE: begin
+                    if (start == 1'b0) begin
+                        // 只有当外界把 start 撤销了，才回到原点
+                        state <= S_IDLE;
+                    end
+                end
+
+
+                
             endcase
         end
     end

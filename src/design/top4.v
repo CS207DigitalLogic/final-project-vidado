@@ -502,11 +502,38 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             9'd120: begin
-                // uart传入矩阵，存储
+                // uart传入矩阵，存储，我来
                 
-                if (btn_confirm_pulse) begin
-                    state = 9'd000;
+                //1. 监测 RX Handler 的完成信号
+                if (rx_handler_done) begin
+                    // 锁存地址：将 Handler 解析出的行/列存入 top4 的写地址寄存器
+                    wr_row <= rx_handler_row;
+                    wr_col <= rx_handler_col;
+                    
+                    // 锁存数据：将 Handler 输出的 25 个数据锁存到 top4 的 buffer
+                    for (k = 0; k < 25; k = k + 1) begin
+                        storage_input_data[k] <= rx_handler_data[k];
+                    end
+                    
+                    // 设置标志位，在下一个时钟周期触发写使能 (确保数据已稳定)
+                    write_flag <= 1'b1;
+                end// 2. 执行写入操作 (由 write_flag 触发)
+
+                if (write_flag) begin
+                    wr_en_reg <= 1'b1; 
+                    write_flag <= 1'b0; 
+                end else begin
+                    wr_en_reg <= 1'b0; // 其他时候保持写无效
                 end
+
+                // --- 返回逻辑 ---
+                if (btn_confirm_pulse) begin
+                    state <= 9'd000;
+                    // 离开状态前复位关键信号
+                    wr_en_reg <= 1'b0;
+                    write_flag <= 1'b0;
+                end
+            
             end
             
             9'd200: begin
