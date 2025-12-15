@@ -42,6 +42,7 @@ module matrix_info_display#(
     localparam S_SEND_NL        = 11;
     localparam S_LIST_CHECK     = 12; // 检查循环
     localparam S_DONE           = 13;
+    localparam S_WAIT_RELEASE   = 14; // [新增] 等待启动信号释放
     
     // UART 发送子状态
     localparam S_TX_START       = 20;
@@ -102,7 +103,7 @@ module matrix_info_display#(
                         rc <= 1;                    // 计数器初始化为 1
                     end
                 end
-
+                // 第一阶段：扫描所有规格并缓存
                 S_SCAN_INIT: begin
                     qry_row <= 1;
                     qry_col <= 1;
@@ -135,7 +136,7 @@ module matrix_info_display#(
                         // 无论是否命中，rc 都 +1 (对应 "若为否 则rc+1")
                         rc <= rc + 1;
                         
-                        // --- 原有逻辑保持不变 ---
+                
                         // 准备发送行号
                         uart_tx_data <= qry_row + "0";
                         return_state <= S_SEND_X; // 下一步去发 'x'
@@ -145,9 +146,6 @@ module matrix_info_display#(
                         state <= S_LIST_CHECK;
                     end
                 end
-
-                // ... 以下为原有显示逻辑，保持不变 ...
-
                 S_SEND_X: begin
                      uart_tx_data <= "x";
                      return_state <= S_SEND_COL;
@@ -165,7 +163,7 @@ module matrix_info_display#(
                      return_state <= S_SEND_TOTAL_HI; 
                      state <= S_TX_START;
                 end
-
+                // 第二阶段：发送总数
                 S_SEND_TOTAL_HI: begin
                     // 简单处理：假设数量 < 10，直接发个位
                     // 若需要支持两位数，请保留你原有的逻辑
@@ -206,7 +204,23 @@ module matrix_info_display#(
                 
                 S_DONE: begin
                     busy <= 0;
-                    state <= S_IDLE;
+                    // [修改] 任务结束时，检查 start_req 是否依然为高
+                    if (start_req) begin
+                        // 如果主机依然拉高启动信号，我们就去等待它变低
+                        state <= S_WAIT_RELEASE;
+                    end else begin
+                        // 如果已经变低了，直接回 IDLE
+                        state <= S_IDLE;
+                    end
+                end
+                
+                // [新增] 等待释放状态
+                S_WAIT_RELEASE: begin
+                    busy <= 0;
+                    // 只有当 start_req 变回 0 后，才允许回到 IDLE 接受下一次触发
+                    if (!start_req) begin
+                        state <= S_IDLE;
+                    end
                 end
 
                 // ===========================
