@@ -164,23 +164,25 @@ module matrix_info_display#(
                      state <= S_TX_START;
                 end
                 // 第二阶段：发送总数
+               // --- 发送矩阵数量（十位或个位） ---
                 S_SEND_TOTAL_HI: begin
-                    // 简单处理：假设数量 < 10，直接发个位
-                    // 若需要支持两位数，请保留你原有的逻辑
-                    uart_tx_data <= (qry_cnt > 9) ? (qry_cnt/10 + "0") : " "; 
-                    // 这里简化了，请根据你原代码恢复
-                    if (qry_cnt > 9) return_state <= S_SEND_TOTAL_LO;
-                    else begin
+                    if (qry_cnt > 9) begin
+                        // 如果大于9，先发十位
+                        uart_tx_data <= (qry_cnt / 10) + "0";
+                        return_state <= S_SEND_TOTAL_LO; // 下一步去发个位
+                    end else begin
+                        // 如果小于等于9，直接发个位
                         uart_tx_data <= qry_cnt + "0";
-                        return_state <= S_SEND_NL;
+                        return_state <= S_SEND_NL;       // 发完直接换行
                     end
-                    state <= S_TX_START;
+                    state <= S_TX_START; // 触发发送
                 end
 
+                // --- 发送矩阵数量（个位，仅在 >9 时进入） ---
                 S_SEND_TOTAL_LO: begin
-                    uart_tx_data <= (qry_cnt % 10) + "0";
-                    return_state <= S_SEND_NL;
-                    state <= S_TX_START;
+                    uart_tx_data <= (qry_cnt % 10) + "0"; // 取余数发个位
+                    return_state <= S_SEND_NL;            // 发完换行
+                    state <= S_TX_START;                  // 触发发送
                 end
 
                 S_SEND_NL: begin
