@@ -39,7 +39,7 @@ module random_matrix_generator #(
 
 // 内部临时数组（仅内部使用）
 reg [WIDTH-1:0] matrix_temp [0:24];
-// 内部信号：新增“更新中”标志，避免重复触发
+// 内部信号：新增"更新中"标志，避免重复触发
 reg [4:0] cnt;                  // 元素索引计数器（0~24）
 reg updating;                   // 刷新中标志（1=正在刷新，0=空闲）
 wire [WIDTH-1:0] random_num;    // 单个随机数
@@ -48,6 +48,7 @@ wire [2:0] valid_col;
 wire [2:0] curr_row;
 wire [2:0] curr_col;
 wire valid_pos;
+reg isComplete;
 
 // 行列钳位和有效位置判断
 assign valid_row = (row < 1) ? 1 : (row > MAX_DIM) ? MAX_DIM : row;
@@ -72,18 +73,19 @@ random_num_generator #(
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         updating <= 1'b0;
-    end else if (update_en && !updating) begin  // 仅在“使能且未刷新”时启动
+        isComplete <= 0;
+    end else if (update_en && !updating && !isComplete) begin  // 仅在"使能且未刷新"时启动
         updating <= 1'b1;
     end else if (cnt == 24) begin              // 刷新到最后一个元素，停止
         updating <= 1'b0;
     end
 end
 
-// 步骤2：计数器逻辑（仅在“刷新中”时递增，否则暂停）
+// 步骤2：计数器逻辑（仅在"刷新中"时递增，否则暂停）
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         cnt <= 5'd0;
-    end else if (updating) begin               // 仅刷新中更新计数器
+    end else if (updating && !isComplete) begin               // 仅刷新中更新计数器
         cnt <= (cnt == 24) ? 5'd0 : cnt + 1'b1;
     end else begin
         cnt <= 5'd0;                           // 空闲时计数器复位
@@ -93,11 +95,10 @@ integer i;
 // 步骤3：填充临时矩阵（仅刷新中赋值，否则保持）
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        
         for (i = 0; i < 25; i = i + 1) begin
             matrix_temp[i] <= {WIDTH{1'b0}};
-        end
-    end else if (updating) begin               // 仅刷新中更新临时矩阵
+    end
+    end else if (updating && !isComplete) begin               // 仅刷新中更新临时矩阵
         matrix_temp[cnt] <= valid_pos ? random_num : {WIDTH{1'b0}};
     end
 end
@@ -130,7 +131,7 @@ always @(posedge clk or negedge rst_n) begin
         matrix_out22 <= {WIDTH{1'b0}};
         matrix_out23 <= {WIDTH{1'b0}};
         matrix_out24 <= {WIDTH{1'b0}};
-    end else if (updating) begin               // 仅刷新中更新输出端口
+    end else if (updating && !isComplete) begin               // 仅刷新中更新输出端口
         matrix_out0  <= matrix_temp[0];
         matrix_out1  <= matrix_temp[1];
         matrix_out2  <= matrix_temp[2];
@@ -165,8 +166,10 @@ always @(posedge clk or negedge rst_n) begin
         update_done <= 1'b0;
     end else if (cnt == 24 && updating) begin  // 最后一个元素刷新完成
         update_done <= 1'b1;
-    end else begin              // 新触发时清零，避免误判
+        isComplete <= 1;
+    end else if (!update_en) begin              // en关闭时清零
         update_done <= 1'b0;
+        isComplete <= 0;
     end
 end
 
