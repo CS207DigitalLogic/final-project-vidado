@@ -69,7 +69,7 @@ bin_to_bcd_3digit bin_to_bcd_inst (
 );
     // -------------------------- 3. 组合逻辑：确定每个数码管显示的内容 --------------------------
     always @(*) begin
-        /*
+        
         seg_code[0] = SEG_OFF; // tub_sel1
         seg_code[1] = SEG_OFF; // tub_sel2
         seg_code[2] = SEG_OFF; // tub_sel3
@@ -78,14 +78,7 @@ bin_to_bcd_3digit bin_to_bcd_inst (
         seg_code[5] = SEG_OFF; // tub_sel6
         seg_code[6] = SEG_OFF; // tub_sel7
         seg_code[7] = SEG_OFF; // tub_sel8
-*/      seg_code[0] = SEG_1; // tub_sel1
-        seg_code[1] = SEG_2; // tub_sel2
-        seg_code[2] = SEG_3; // tub_sel3
-        seg_code[3] = SEG_4; // tub_sel4
-        seg_code[4] = SEG_5; // tub_sel5
-        seg_code[5] = SEG_6; // tub_sel6
-        seg_code[6] = SEG_7; // tub_sel7
-        seg_code[7] = SEG_8; // tub_sel8
+
         // 根据 menuState 确定左侧数码管显示
         /*
         case (menuState)
