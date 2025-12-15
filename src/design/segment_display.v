@@ -61,7 +61,7 @@ module segment_display (
     wire [11:0] bcd_number;
 
     // 时钟分频
-    wire [13:0] tiaoPin = 14'd30;
+    wire [13:0] tiaoPin = 14'd5000;
     divider newclk(clk, reset, tiaoPin, clk_out);
 bin_to_bcd_3digit bin_to_bcd_inst (
     .bin_in(menuState), // 输入 8 位二进制数
@@ -171,8 +171,8 @@ bin_to_bcd_3digit bin_to_bcd_inst (
 
 
     // -------------------------- 4. 时序逻辑：动态扫描 --------------------------
-    always @(posedge clk_out or posedge reset) begin
-        if (reset) begin
+    always @(posedge clk_out or negedge reset) begin
+        if (!reset) begin
             scan_count <= 3'b000;
         end else begin
             scan_count <= scan_count + 3'b001; // 从0到7循环
@@ -207,10 +207,10 @@ end
 
     // 根据 scan_count 选择要输出的段码
     // 假设 tub_control1 控制 [0..3] (sel1-sel4), tub_control2 控制 [4..7] (sel5-sel8)
-    assign tub_control1 = seg_code[scan_count];
-    assign tub_control2 = seg_code[scan_count];
+assign tub_control1 = (scan_count < 4) ? seg_code[scan_count] : 8'b0;
+assign tub_control2 = (scan_count >= 4) ? seg_code[scan_count] : 8'b0;
 endmodule
-
+/*
 module bin_to_bcd_3digit (
     input  wire [9:0]  bin_in,   // 输入 10 位二进制数 (最大支持 1023)
     output reg  [11:0] bcd_out   // 输出 12 位 BCD 码 {百位, 十位, 个位}
@@ -244,4 +244,20 @@ module bin_to_bcd_3digit (
         end
     end
 
+endmodule
+*/
+module bin_to_bcd_3digit (
+    input  [9:0] bin_in,
+    output [11:0] bcd_out
+);
+    wire [7:0] hundreds;
+    wire [7:0] tens;
+    wire [3:0] ones;
+
+    // 综合工具会将除以常数优化为乘法+移位逻辑
+    assign hundreds = bin_in / 100;         // 得到百位
+    assign ones     = bin_in % 10;          // 得到个位
+    assign tens     = (bin_in / 10) % 10;   // 得到十位
+
+    assign bcd_out = {hundreds[3:0], tens[3:0], ones[3:0]};
 endmodule
