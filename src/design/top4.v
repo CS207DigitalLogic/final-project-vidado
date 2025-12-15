@@ -603,7 +603,7 @@ always @(posedge clk or negedge rst_n) begin
                     wr_col <= rx_handler_col;
                     
                     // 锁存数据：将 Handler 输出的 25 个数据锁存到 top4 的 buffer
-                    for (k = 0; k < 25; k = k + 1) begin
+                    for (i  = 0; i < 25; i = i + 1) begin
                         storage_input_data[k] <= rx_handler_data[k];
                     end
                     
