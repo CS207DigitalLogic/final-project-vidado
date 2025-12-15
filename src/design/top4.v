@@ -14,6 +14,7 @@ module top4 #(
     input  wire [2:0] sw_mode,  // 模式选择开关
     input  wire btn_confirm,    // 确认按钮
     input  wire btn_return,     // 返回按钮
+    input  wire btn_random,     // 随机按钮
     output reg led_error_status,// 错误状态指示灯
     output [7:0] seg_cs_pin,    // 8个数码管位选
     output [7:0] seg_data_0_pin,// 数码管段选0
@@ -31,6 +32,7 @@ reg [31:0] sec_cnt;
 // 消抖后的按键信号
 wire btn_confirm_pulse;
 wire btn_return_pulse;
+wire btn_random_pulse;
 
 // Matrix Storage 相关信号
 wire        wr_en;
@@ -72,8 +74,7 @@ reg [3:0] matrix_opr_1_r1;
 reg [3:0] matrix_opr_1_c1;
 reg [3:0] matrix_opr_2_r2;
 reg [3:0] matrix_opr_2_c2;
-reg [7:0] scalar_value_reg;
-wire [DATA_WIDTH-1:0] scalar_value;
+reg [DATA_WIDTH-1:0] scalar_value;
 
 // ========================== 2. 解决多驱动问题的核心修改 ==========================
 
@@ -128,7 +129,7 @@ reg [7:0] min_val;
 reg [7:0] max_val;   
 
 // ========== 状态机相关 ==========
-reg [8:0] state, next_state;
+reg [9:0] state;
 
 // UART发送缓冲区
 reg [7:0] uart_buffer [0:63];
@@ -156,6 +157,9 @@ key_debounce u_keydebounce1 (
 );
 key_debounce u_keydebounce2 (
     .clk(clk), .rst_n(rst_n), .btn_trigger(btn_return), .btn_pulse(btn_return_pulse)
+);
+key_debounce u_keydebounce3 (
+    .clk(clk), .rst_n(rst_n), .btn_trigger(btn_random), .btn_pulse(btn_random_pulse)
 );
 
 // RX Handler
@@ -433,18 +437,17 @@ reg [7:0] rx_buf;
 
 // 状态机
 integer i;
+integer k;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        state <= 9'd000;
-        next_state <= 9'd000;
-        menuState <= 9'd010;
+        state <= 10'd000;
+        menuState <= 10'd010;
         wr_en_reg <= 0;
         write_flag <= 0;
         led_error_status <= 0;
         uart_send_flag <= 0;
         add_en <= 0; scalar_en <= 0; trans_en <= 0; mult_en <= 0; conv_en <= 0;
         seconds <= 0; sec_cnt <= 0;
-        scalar_value_reg <= 0;
         uart_buf_ptr <= 0; 
         uart_byte_cnt <= 0;
         rand_gen_en <= 0; rand_row <= 0; rand_col <= 0;
@@ -457,29 +460,27 @@ always @(posedge clk or negedge rst_n) begin
     end 
     else begin
         menuState <= state;
-//        state <= next_state;
         case(state)
-            9'd000: begin
+            10'd000: begin
                 // 初始状态操作（留白）
                 
                 led <= 14'b00_0000_0000_1100;
                 
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
-                        3'b001: state = 9'd100;  // 模式1输入并存储
-                        3'b010: state = 9'd200;  // 模式2随机生成
-                        3'b011: state = 9'd300;  // 模式3矩阵展示
-                        3'b100: state = 9'd400;  // 模式4运算
-                        default: state = 9'd000;
+                        3'b001: state = 10'd100;  // 模式1输入并存储
+                        3'b010: state = 10'd200;  // 模式2随机生成
+                        3'b011: state = 10'd300;  // 模式3矩阵展示
+                        3'b100: state = 10'd400;  // 模式4运算
+                        default: state = 10'd000;
                     endcase
                 end
             end
             
             9'd100: begin
                 // uart传入r
-                led <= 14'b10_0000_0000_0000;
                 rx_buf <= rx_data;
-                
+                wr_row <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
                     state = 9'd110;
@@ -492,6 +493,7 @@ always @(posedge clk or negedge rst_n) begin
             9'd110: begin
                 // uart传入c
                 led <= 14'b10_0000_0000_0000;
+                wr_col <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
                     state = 9'd120;
@@ -540,7 +542,7 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入r
                 led <= 14'b01_0000_0000_0000;
                 rx_buf <= rx_data;
-                
+                rand_row <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
                     state = 9'd210;
@@ -553,18 +555,83 @@ always @(posedge clk or negedge rst_n) begin
             9'd210: begin
                 // uart传入c，随机生成矩阵并存储
                 led <= 14'b01_0000_0000_0000;
+                rx_buf <= rx_data;
+                rand_col <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
-                    state = 9'd000;
+                    state = 9'd220;
                 end
             end
-            
+
+            9'd220: begin
+                // uart传入c，随机生成矩阵
+                led <= 14'b01_0000_0000_0000;
+                rand_gen_en <= 1'b1;
+                if(rand_update_done) begin
+                    rand_gen_en <= 1'b0;
+                    state = 9'd230;
+                end
+                
+            end
+           9'd230: begin
+                // 1. 准备数据 (Data Setup)
+                led <= 14'b01_0000_0000_0000;
+                  
+                storage_input_data[0] <= rand_data[0];
+                storage_input_data[1] <= rand_data[1];
+                storage_input_data[2] <= rand_data[2];
+                storage_input_data[3] <= rand_data[3];
+                storage_input_data[4] <= rand_data[4];
+                storage_input_data[5] <= rand_data[5];
+                storage_input_data[6] <= rand_data[6];
+                storage_input_data[7] <= rand_data[7];
+                storage_input_data[8] <= rand_data[8];
+                storage_input_data[9] <= rand_data[9];
+                storage_input_data[10] <= rand_data[10];
+                storage_input_data[11] <= rand_data[11];
+                storage_input_data[12] <= rand_data[12];
+                storage_input_data[13] <= rand_data[13];
+                storage_input_data[14] <= rand_data[14];
+                storage_input_data[15] <= rand_data[15];
+                storage_input_data[16] <= rand_data[16];
+                storage_input_data[17] <= rand_data[17];
+                storage_input_data[18] <= rand_data[18];
+                storage_input_data[19] <= rand_data[19];
+                storage_input_data[20] <= rand_data[20];
+                storage_input_data[21] <= rand_data[21];
+                storage_input_data[22] <= rand_data[22];
+                storage_input_data[23] <= rand_data[23];
+                storage_input_data[24] <= rand_data[24];
+                storage_input_data[24] <= rand_data[24];
+                
+                // 【重要】确保在这里 wr_en 是低的，为产生上升沿做准备
+                wr_en_reg <= 1'b0; 
+                
+                // 跳到专门的"触发状态"
+                state <= 9'd235; 
+            end
+
+            // --- 新增状态：产生写脉冲 (Write Pulse) ---
+            9'd235: begin
+                wr_en_reg <= 1'b1; // 拉高写使能
+                state <= 9'd240;   // 立即跳转，只保持一个周期的高电平
+            end
+            // ---------------------------------------
+
+            9'd240: begin
+                // 【重要】立即拉低写使能！形成 0->1->0 的脉冲
+                wr_en_reg <= 1'b0; 
+                
+                // 在这里可以放心地等待多久都行，因为 wr_en 已经是 0 了
+                if (btn_confirm_pulse) begin
+                    state <= 9'd000;
+                end
+            end
             9'd300: begin
                 // uart传入r
-                led <= 14'b00_1000_0000_0000;
                 rx_buf <= rx_data;
                 
-    
+                display_row <= rx_data-"0";
                 if (btn_confirm_pulse) begin
                     state = 9'd310;
                 end
@@ -575,72 +642,536 @@ always @(posedge clk or negedge rst_n) begin
             
             9'd310: begin
                 // uart传入c，展示矩阵
-                led <= 14'b00_1000_0000_0000;
-
+                rx_buf <= rx_data;
+                display_col <= rx_data-"0";
                 if (btn_confirm_pulse) begin
-                    state = 9'd000;
+                  
+                    state = 9'd320;
+                end
+            end
+            9'd320: begin
+                req_scale_col<=display_col;
+                req_scale_row<=display_row;
+                req_index<=1'b0;
+             state<=9'd325;
+            end
+            9'd325: begin
+                // 这是一个空操作状态 (Wait State)
+                // 仅仅是为了消耗一个时钟周期，让 storage_output_data 有时间更新
+                state <= 9'd326;
+            end
+             9'd326: begin
+                // 这是一个空操作状态 (Wait State)
+                // 仅仅是为了消耗一个时钟周期，让 storage_output_data 有时间更新
+                state <= 9'd327;
+            end
+             9'd327: begin
+                // 这是一个空操作状态 (Wait State)
+                // 仅仅是为了消耗一个时钟周期，让 storage_output_data 有时间更新
+                state <= 9'd330;
+            end
+            9'd330: begin
+                led <=num;
+                matrix_display_data[0] <= storage_output_data[0];
+                    matrix_display_data[1] <= storage_output_data[1];
+                    matrix_display_data[2] <= storage_output_data[2];
+                    matrix_display_data[3] <= storage_output_data[3];
+                    
+                    matrix_display_data[4] <= storage_output_data[4];
+                    matrix_display_data[5] <= storage_output_data[5];
+                    matrix_display_data[6] <= storage_output_data[6];
+                    matrix_display_data[7] <= storage_output_data[7];
+                    matrix_display_data[8] <= storage_output_data[8];
+                    matrix_display_data[9] <= storage_output_data[9];
+                    matrix_display_data[10] <= storage_output_data[10];
+                    matrix_display_data[11] <= storage_output_data[11];
+                    matrix_display_data[12] <= storage_output_data[12];
+                    matrix_display_data[13] <= storage_output_data[13];
+                    matrix_display_data[14] <= storage_output_data[14];
+                    matrix_display_data[15] <= storage_output_data[15];
+                    matrix_display_data[16] <= storage_output_data[16];
+                    matrix_display_data[17] <= storage_output_data[17];
+                    matrix_display_data[18] <= storage_output_data[18];
+                    matrix_display_data[19] <= storage_output_data[19];
+                    matrix_display_data[20] <= storage_output_data[20];
+                    matrix_display_data[21] <= storage_output_data[21];
+                    matrix_display_data[22] <= storage_output_data[22];
+                    matrix_display_data[23] <= storage_output_data[23];
+                    matrix_display_data[24] <= storage_output_data[24];
+                   state<=9'd340;
+            end
+            9'd340: begin
+                // 启动展示模块
+                 display_start <= 1'b1;
+                state <= 9'd350;
+               
+            end
+            9'd350: begin
+                // 等待展示完成
+                display_start <= 1'b0;
+                if (!display_busy) begin
+                    state <= 9'd300;
                 end
             end
             
-            9'd400: begin
-                
-                
-                if (btn_return_pulse) begin
-                    state = 9'd000;
-                end
-            end
-            
-            9'd400: begin
+            10'd400: begin
                 // 模式4操作（留白）
                 led <= 14'b00_0100_0000_0000;
                 
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
-                        3'b001: state = 9'd410;  // 模式1矩阵转置
-                        3'b010: state = 9'd420;  // 模式2矩阵加法
-                        3'b011: state = 9'd430;  // 模式3矩阵标量
-                        3'b100: state = 9'd440;  // 模式4矩阵乘法
-                        3'b101: state = 9'd450;  // 模式5卷积运算
+                        3'b001: state = 10'd410;  // 模式1矩阵转置
+                        3'b010: state = 10'd420;  // 模式2矩阵加法
+                        3'b011: state = 10'd430;  // 模式3矩阵标量
+                        3'b100: state = 10'd440;  // 模式4矩阵乘法
+                        3'b101: state = 10'd450;  // 模式5卷积运算
                     endcase
                 end
             
                 if (btn_return_pulse) begin
-                    next_state = 9'd000;
+                    state = 10'd000;
                 end
             end
             
-            9'd410: begin
-            
+            10'd410: begin
+                // uart传入r
+                rx_buf <= rx_data;
+                matrix_opr_1_r1 <= rx_buf;
+                
+                if (btn_random_pulse) begin
+                    state = 10'd510;
+                end
+                if (btn_confirm_pulse) begin
+                    state = 10'd411;
+                end
                 if (btn_return_pulse) begin
-                    next_state = 9'd000;
+                    state = 10'd400;
                 end
             end
             
-            9'd420: begin
-            
+            10'd411: begin
+                // uart传入c，展示矩阵
+                rx_buf <= rx_data;
+                matrix_opr_1_c1 <= rx_buf;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd412;
+                end
                 if (btn_return_pulse) begin
-                    next_state = 9'd000;
+                    state = 10'd400;
                 end
             end
             
-            9'd430: begin
-            
+            10'd412: begin
+                // uart传入num，将指定矩阵传入转置模块
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd413;
+                end
                 if (btn_return_pulse) begin
-                    next_state = 9'd000;
+                    state = 10'd400;
                 end
             end
             
-            9'd440: begin
-            
+            10'd413: begin
+                // 将trans_en变为1，开始转置，将转置结果接到display上
+                trans_en <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd414;
+                end
                 if (btn_return_pulse) begin
-                    next_state = 9'd000;
+                    state = 10'd400;
                 end
             end
             
-            9'd450: begin
+            10'd414: begin
+                // 将display_start变为1，开始传输
+                display_start <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    // 将display_start和trans_en变为0
+                    display_start <= 0;
+                    trans_en <= 0;
+                    state = 10'd400;
+                end
+            end
             
+            10'd420: begin
+                // uart传入r
+                rx_buf <= rx_data;
+                matrix_opr_1_r1 <= rx_buf;
+                
+                if (btn_random_pulse) begin
+                    state = 10'd520;
+                end
+                if (btn_confirm_pulse) begin
+                    state = 10'd421;
+                end
                 if (btn_return_pulse) begin
-                    next_state = 9'd000;
+                    state = 10'd400;
+                end
+            end
+            
+            10'd421: begin
+                // uart传入c，展示矩阵
+                rx_buf <= rx_data;
+                matrix_opr_1_c1 <= rx_buf;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd422;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd422: begin
+                // uart传入num，将指定矩阵传入加法模块1端口
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd423;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd423: begin
+                // uart传入r
+                rx_buf <= rx_data;
+                matrix_opr_2_r2 <= rx_buf;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd424;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd424: begin
+                // uart传入c
+                rx_buf <= rx_data;
+                matrix_opr_2_c2 <= rx_buf;
+
+                if (btn_confirm_pulse) begin
+                    if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
+                        state = 10'd425;
+                    end else begin
+                        // 回到输入第二个矩阵的r，并触发倒计时
+                        state = 10'd423;
+                    end
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd425: begin
+                // uart传入num，将指定矩阵传入加法模块2端口
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd426;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd426: begin
+                // 将add_en变为1，开始加法，将加法结果接到display上
+                add_en <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd427;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd427: begin
+                // 将display_start变为1，开始传输
+                display_start <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    // 将display_start和add_en变为0
+                    display_start <= 0;
+                    add_en <= 0;
+                    state = 10'd400;
+                end
+            end
+            
+            10'd430: begin
+                // uart传入r
+                rx_buf <= rx_data;
+                matrix_opr_1_r1 <= rx_buf;
+                
+                if (btn_random_pulse) begin
+                    state = 10'd530;
+                end
+                if (btn_confirm_pulse) begin
+                    state = 10'd431;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd431: begin
+                // uart传入c，展示矩阵
+                rx_buf <= rx_data;
+                matrix_opr_1_c1 <= rx_buf;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd432;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd432: begin
+                // uart传入num，将指定矩阵传入乘法模块
+                rx_buf <= rx_data;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd433;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd433: begin
+                // uart传入scalar，将标量传入乘法模块
+                rx_buf <= rx_data;
+                scalar_value <= rx_buf;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd434;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd434: begin
+                // 将scalar_en变为1，开始转置，将乘法结果接到display上
+                scalar_en <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd435;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd435: begin
+                // 将display_start变为1，开始传输
+                display_start <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    // 将display_start和scalar_en变为0
+                    display_start <= 0;
+                    scalar_en <= 0;
+                    state = 10'd400;
+                end
+            end
+            
+            10'd440: begin
+                // uart传入r
+                rx_buf <= rx_data;
+                matrix_opr_1_r1 <= rx_buf;
+                
+                if (btn_random_pulse) begin
+                    state = 10'd540;
+                end
+                if (btn_confirm_pulse) begin
+                    state = 10'd441;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd441: begin
+                // uart传入c，展示矩阵
+                rx_buf <= rx_data;
+                matrix_opr_1_c1 <= rx_buf;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd442;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd442: begin
+                // uart传入num，将指定矩阵传入矩阵乘法模块1端口
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd443;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd443: begin
+                // uart传入r
+                rx_buf <= rx_data;
+                matrix_opr_2_r2 <= rx_buf;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd444;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd444: begin
+                // uart传入c
+                rx_buf <= rx_data;
+                matrix_opr_2_c2 <= rx_buf;
+
+                if (btn_confirm_pulse) begin
+                    if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
+                        state = 10'd445;
+                    end else begin
+                        // 回到输入第二个矩阵的r，并触发倒计时
+                        state = 10'd443;
+                    end
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd445: begin
+                // uart传入num，将指定矩阵传入矩阵乘法模块2端口
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd446;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd446: begin
+                // 将mult_en变为1，开始加法，将乘法结果接到display上
+                mult_en <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd447;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd447: begin
+                // 将display_start变为1，开始传输
+                display_start <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    // 将display_start和mult_en变为0
+                    display_start <= 0;
+                    mult_en <= 0;
+                    state = 10'd400;
+                end
+            end
+            
+            10'd450: begin
+                // 用户输入3*3矩阵
+                
+                if (btn_random_pulse) begin
+                    state = 10'd550;
+                end
+                if (btn_confirm_pulse) begin
+                    state = 10'd451;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd451: begin
+                // 将conv_en变为1，开始卷积，将卷积结果接到displayer80上
+                conv_en <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd452;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd400;
+                end
+            end
+            
+            10'd452: begin
+                // 将display_start变为1，开始传输
+                display_start <= 1;
+                
+                if (btn_confirm_pulse) begin
+                    // 将display_start和conv_en变为0
+                    display_start <= 0;
+                    conv_en <= 0;
+                    state = 10'd400;
+                end
+            end
+            
+            10'd510: begin
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd511;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd410;
+                end
+            end
+            
+            10'd520: begin
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd521;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd420;
+                end
+            end
+            
+            10'd530: begin
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd531;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd430;
+                end
+            end
+            
+            10'd540: begin
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd541;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd440;
+                end
+            end
+            
+            10'd550: begin
+                
+                if (btn_confirm_pulse) begin
+                    state = 10'd551;
+                end
+                if (btn_return_pulse) begin
+                    state = 10'd450;
                 end
             end
         endcase
