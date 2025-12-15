@@ -23,7 +23,7 @@ module top4 #(
 );
 
 // ========================== 1. 内部信号定义 ==========================
-assign wr_en = wr_en_reg;
+
 
 // 数码管显示模块相关信号
 reg [11:0] menuState;
@@ -52,6 +52,8 @@ wire [7:0] rx_handler_data [0:24];
 wire [DATA_WIDTH-1:0] storage_output_data[0:24]; 
 reg wr_en_reg;       // 手动控制的写使能 (用于随机生成)
 reg write_flag;      // 写入完成标志
+assign wr_en = wr_en_reg;
+
 
 // 显示与查询相关
 reg [2:0] req_scale_row;
@@ -75,7 +77,9 @@ reg [3:0] matrix_opr_1_r1;
 reg [3:0] matrix_opr_1_c1;
 reg [3:0] matrix_opr_2_r2;
 reg [3:0] matrix_opr_2_c2;
-reg [DATA_WIDTH-1:0] scalar_value;
+reg [DATA_WIDTH-1:0] scalar_value;    
+reg  start_info_display_pulse;
+reg start_search_display_pulse;
 
 // 显示模块与存储模块的接口信号
     wire info_busy;
@@ -84,8 +88,7 @@ reg [DATA_WIDTH-1:0] scalar_value;
     wire uart_tx_start_info;
     wire [7:0] uart_tx_data_info;
     wire [2:0] scale_matrix_cnt; // 对应存储模块的 scale_matrix_cnt 输出
-    wire start_info_display_pulse;
-    wire start_search_display_pulse;
+
 
 // --- Search Displayer 相关信号 ---
 wire        disp_busy;
@@ -732,10 +735,15 @@ always @(posedge clk or negedge rst_n) begin
             9'd310: begin
                 // uart传入r
                 rx_buf <= rx_data;
-                
+                display_start <= 1'b0;
+                start_search_display_pulse <= 1'b0;
+                start_info_display_pulse<=1'd0;
                 display_row <= rx_data-"0";
                 if (btn_confirm_pulse) begin
                     state = 9'd320;
+                end
+                if (btn_return_pulse) begin
+                    state <= 9'd000;
                 end
             end
             
@@ -743,6 +751,33 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c，展示矩阵
                 rx_buf <= rx_data;
                 display_col <= rx_data-"0";
+                if (btn_confirm_pulse) begin
+                    // 1. 将用户输入的行/列传递给存储查询接口 (matrix_search_displayer 使用)
+                    req_scale_row <= display_row;
+                    // 注意：此时 display_col 已经是最新值（假设用户输入后才按确认）
+                    req_scale_col <= display_col; 
+                    
+                    // 2. 拉高启动信号，触发 matrix_search_displayer
+                    start_search_display_pulse <= 1'b1;
+                    
+                    // 3. 跳转到显示保持状态
+                    // 如果停留在 320，display_start 持续为高可能会导致模块不断复位或重发
+                    state <= 9'd330; 
+                end
+                
+                // 补充返回逻辑
+                if (btn_return_pulse) begin
+                    state <= 9'd000;
+                end
+            end
+            9'd330: begin
+            
+                
+                // 等待用户按下返回或确认键退出显示
+                if (btn_return_pulse || btn_confirm_pulse) begin
+                    
+                    start_search_display_pulse <= 1'b0;   
+                end
             end
             
              10'd400: begin
