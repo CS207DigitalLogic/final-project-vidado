@@ -30,7 +30,7 @@
 module segment_display (
     input clk, //时钟信号
     input reset,//复位信号
-    input [11:0] menuState, //当前菜单状态 使用10进制BCD码
+    input [9:0] menuState, //当前菜单状态 
     input [8:0] seconds, //当前秒数，使用10进制BCD码，范围0-99
     output reg tub_sel1, // 从左侧开始编号，控制第1个七段数码管的显示
     output reg tub_sel2, // 左侧第2个七段数码管
@@ -58,13 +58,18 @@ module segment_display (
     reg [2:0] scan_count;
     wire clk_out;
     reg [7:0] seg_code[7:0]; // 存储8个数码管要显示的段码
+    wire [11:0] bcd_number;
 
     // 时钟分频
     wire [13:0] tiaoPin = 14'd30;
     divider newclk(clk, reset, tiaoPin, clk_out);
-
+bin_to_bcd_3digit bin_to_bcd_inst (
+    .bin_in(menuState), // 输入 8 位二进制数
+    .bcd_out(bcd_number)   // 输出 12 位 BCD 码
+);
     // -------------------------- 3. 组合逻辑：确定每个数码管显示的内容 --------------------------
     always @(*) begin
+        /*
         seg_code[0] = SEG_OFF; // tub_sel1
         seg_code[1] = SEG_OFF; // tub_sel2
         seg_code[2] = SEG_OFF; // tub_sel3
@@ -73,9 +78,18 @@ module segment_display (
         seg_code[5] = SEG_OFF; // tub_sel6
         seg_code[6] = SEG_OFF; // tub_sel7
         seg_code[7] = SEG_OFF; // tub_sel8
-
+*/      seg_code[0] = SEG_1; // tub_sel1
+        seg_code[1] = SEG_2; // tub_sel2
+        seg_code[2] = SEG_3; // tub_sel3
+        seg_code[3] = SEG_4; // tub_sel4
+        seg_code[4] = SEG_5; // tub_sel5
+        seg_code[5] = SEG_6; // tub_sel6
+        seg_code[6] = SEG_7; // tub_sel7
+        seg_code[7] = SEG_8; // tub_sel8
         // 根据 menuState 确定左侧数码管显示
+        /*
         case (menuState)
+        //0100_0010_0000
             12'd100: seg_code[0] = SEG_1; // 显示 "1"
             12'd200: seg_code[0] = SEG_2; // 显示 "2"
             12'd300: seg_code[0] = SEG_3; // 显示 "3"
@@ -85,10 +99,54 @@ module segment_display (
             12'd430: begin seg_code[0] = SEG_4; seg_code[1] = SEG_3; end // 显示 "4" "3"
             12'd440: begin seg_code[0] = SEG_4; seg_code[1] = SEG_4; end // 显示 "4" "4"
             12'd450: begin seg_code[0] = SEG_4; seg_code[1] = SEG_5; end // 显示 "4" "5"
+            12'd460: begin seg_code[0] = SEG_4; seg_code[1] = SEG_6; end // 显示 "4" "6"
             // 可以继续添加其他 menuState 的显示逻辑
-            default: ; // 默认保持熄灭
+            default: 
+            begin 
+            seg_code[0] = SEG_7; // tub_sel1
+            seg_code[1] = SEG_8; // tub_sel2
+            end// 默认保持熄灭
         endcase
+*/
+        
+         // 根据 bcd_number 确定左侧数码管显示
+        case (bcd_number[11:8])
+            4'd0: seg_code[0] = SEG_0;
+            4'd1: seg_code[0] = SEG_1;
+            4'd2: seg_code[0] = SEG_2;
+            4'd3: seg_code[0] = SEG_3;
+            4'd4: seg_code[0] = SEG_4;
+            4'd5: seg_code[0] = SEG_5;
+            4'd6: seg_code[0] = SEG_6;
+            4'd7: seg_code[0] = SEG_7;
+            4'd8: seg_code[0] = SEG_8;
+            4'd9: seg_code[0] = SEG_9;
+        endcase
+        case (bcd_number[7:4])
 
+            4'd0: seg_code[1] = SEG_0;
+            4'd1: seg_code[1] = SEG_1;
+            4'd2: seg_code[1] = SEG_2;
+            4'd3: seg_code[1] = SEG_3;
+            4'd4: seg_code[1] = SEG_4;
+            4'd5: seg_code[1] = SEG_5;
+            4'd6: seg_code[1] = SEG_6;
+            4'd7: seg_code[1] = SEG_7;
+            4'd8: seg_code[1] = SEG_8;
+            4'd9: seg_code[1] = SEG_9;
+        endcase
+        case (bcd_number[3:0])
+            4'd0: seg_code[2] = SEG_0;
+            4'd1: seg_code[2] = SEG_1;
+            4'd2: seg_code[2] = SEG_2;
+            4'd3: seg_code[2] = SEG_3;
+            4'd4: seg_code[2] = SEG_4;
+            4'd5: seg_code[2] = SEG_5;
+            4'd6: seg_code[2] = SEG_6;
+            4'd7: seg_code[2] = SEG_7;
+            4'd8: seg_code[2] = SEG_8;
+            4'd9: seg_code[2] = SEG_9;
+        endcase
         // 根据 seconds 确定右侧数码管显示 (如果 seconds[8] 为1，则显示秒数)
         if (seconds[8]) begin
             case (seconds[7:4])
@@ -158,4 +216,39 @@ end
     // 假设 tub_control1 控制 [0..3] (sel1-sel4), tub_control2 控制 [4..7] (sel5-sel8)
     assign tub_control1 = seg_code[scan_count];
     assign tub_control2 = seg_code[scan_count];
+endmodule
+
+module bin_to_bcd_3digit (
+    input  wire [9:0]  bin_in,   // 输入 10 位二进制数 (最大支持 1023)
+    output reg  [11:0] bcd_out   // 输出 12 位 BCD 码 {百位, 十位, 个位}
+);
+
+    integer i;
+
+    always @* begin
+        // 初始化输出为 0
+        bcd_out = 12'b0;
+        
+        // 算法循环 10 次（对应输入二进制的位数）
+        for (i = 9; i >= 0; i = i - 1) begin
+            
+            // 1. 检查百位、十位、个位是否 >= 5，若是则加 3
+            // 百位：bcd_out[11:8]
+            // 十位：bcd_out[7:4]
+            // 个位：bcd_out[3:0]
+            
+            if (bcd_out[3:0] >= 5)
+                bcd_out[3:0] = bcd_out[3:0] + 3;
+            
+            if (bcd_out[7:4] >= 5)
+                bcd_out[7:4] = bcd_out[7:4] + 3;
+            
+            if (bcd_out[11:8] >= 5)
+                bcd_out[11:8] = bcd_out[11:8] + 3;
+
+            // 2. 整体左移一位，并将二进制输入的当前位移入最低位
+            bcd_out = {bcd_out[10:0], bin_in[i]};
+        end
+    end
+
 endmodule
