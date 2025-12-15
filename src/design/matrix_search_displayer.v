@@ -259,7 +259,10 @@ module matrix_search_displayer #(
 
                 S_DONE: begin
                     busy <= 0;
-                    state <= S_IDLE;
+                    if (start == 1'b0) begin
+                        // 只有当外界把 start 撤销了，才回到原点
+                        state <= S_IDLE;
+                    end
                 end
                 
                 default: state <= S_IDLE;
