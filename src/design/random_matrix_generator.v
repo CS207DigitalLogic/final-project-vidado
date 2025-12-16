@@ -45,17 +45,15 @@ reg updating;                   // 刷新中标志（1=正在刷新，0=空闲�
 wire [WIDTH-1:0] random_num;    // 单个随机数
 wire [2:0] valid_row;
 wire [2:0] valid_col;
-wire [2:0] curr_row;
-wire [2:0] curr_col;
+wire [4:0] total_cnt;
 wire valid_pos;
 reg isComplete;
 
 // 行列钳位和有效位置判断
 assign valid_row = (row < 1) ? 1 : (row > MAX_DIM) ? MAX_DIM : row;
 assign valid_col = (col < 1) ? 1 : (col > MAX_DIM) ? MAX_DIM : col;
-assign curr_row = cnt / MAX_DIM;
-assign curr_col = cnt % MAX_DIM;
-assign valid_pos = (curr_row < valid_row) && (curr_col < valid_col);
+assign total_cnt = valid_row * valid_col;
+assign valid_pos = (cnt < total_cnt);
 
 // 实例化随机数生成器（传递动态范围输入）
 random_num_generator #(
