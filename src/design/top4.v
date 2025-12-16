@@ -83,6 +83,8 @@ reg start_search_display_pulse;
 
 // 显示模块与存储模块的接口信号
     wire info_busy;
+    wire [2:0]  info_qry_row;       // Info 模块查询行
+    wire [2:0]  info_qry_col;       // Info 模块查询列
     wire [2:0] info_req_row;
     wire [2:0] info_req_col;
 
@@ -194,12 +196,10 @@ uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_rx (
 
 uart_tx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_tx (
     .clk(clk), .rst_n(rst_n),
-    .tx_start((info_busy) ? uart_tx_start_info :
-                            (disp_busy) ? disp_tx_start :
-                            tx_start ), 
-    .tx_data ( (info_busy) ? uart_tx_data_info :
-                            (disp_busy) ? disp_tx_data :
-                            tx_data  ), .tx(uart_tx), .tx_busy(tx_busy)
+    .tx_start((info_busy) ? info_tx_start : search_tx_start), 
+    .tx_data ( (info_busy) ? info_tx_data  : search_tx_data)，
+    .tx         (uart_tx),
+        .tx_busy    (tx_busy)
 );
 
 key_debounce u_keydebounce1 (
