@@ -236,7 +236,7 @@ always @(posedge clk or negedge rst_n) begin
         // ---------------------------
         // 2. 时序写入逻辑（仅在wr_en上升沿时执行一次）
         // ---------------------------
-        if (wr_en && !wr_en_d) begin  // 检测wr_en上升沿
+        if (wr_en) begin  // 检测wr_en上升沿
             // 检查是否可以写入
             if (wr_ready) begin
                 // 设置覆写标志

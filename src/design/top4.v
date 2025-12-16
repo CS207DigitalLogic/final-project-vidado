@@ -666,7 +666,9 @@ always @(posedge clk or negedge rst_n) begin
            9'd230: begin
                 // 1. 准备数据 (Data Setup)
                 led <= 14'b01_0000_0000_0000;
-                  
+             
+                wr_row <= rand_row;
+                wr_col <= rand_col; 
                 storage_input_data[0] <= rand_data[0];
                 storage_input_data[1] <= rand_data[1];
                 storage_input_data[2] <= rand_data[2];
@@ -692,15 +694,21 @@ always @(posedge clk or negedge rst_n) begin
                 storage_input_data[22] <= rand_data[22];
                 storage_input_data[23] <= rand_data[23];
                 storage_input_data[24] <= rand_data[24];
-                storage_input_data[24] <= rand_data[24];
                 
                 // 【重要】确保在这里 wr_en 是低的，为产生上升沿做准备
                 wr_en_reg <= 1'b0; 
                 
                 // 跳到专门的"触发状态"
-                state <= 9'd235; 
+                state <= 9'd233; 
             end
-
+            9'd233: begin
+                // 空状态，等待写入脉冲产生
+                state <= 9'd234;
+            end
+            9'd234: begin
+                // 空状态，等待写入脉冲产生
+                state <= 9'd235;
+            end
             // --- 新增状态：产生写脉冲 (Write Pulse) ---
             9'd235: begin
                 wr_en_reg <= 1'b1; // 拉高写使能
