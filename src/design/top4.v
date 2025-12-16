@@ -604,7 +604,7 @@ always @(posedge clk or negedge rst_n) begin
                     
                     // 锁存数据：将 Handler 输出的 25 个数据锁存到 top4 的 buffer
                     for (i  = 0; i < 25; i = i + 1) begin
-                        storage_input_data[k] <= rx_handler_data[k];
+                        storage_input_data[i] <= rx_handler_data[i];
                     end
                     
                     // 设置标志位，在下一个时钟周期触发写使能 (确保数据已稳定)
