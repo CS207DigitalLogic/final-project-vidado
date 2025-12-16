@@ -85,6 +85,14 @@ reg start_search_display_pulse;
     wire info_busy;
     wire [2:0] info_req_row;
     wire [2:0] info_req_col;
+
+    // 2. Search 模块的信号
+    wire [2:0]  search_req_row;
+    wire [2:0]  search_req_col;
+    wire [2:0]  search_req_idx;
+
+
+
     wire uart_tx_start_info;
     wire [7:0] uart_tx_data_info;
     wire [2:0] scale_matrix_cnt; // 对应存储模块的 scale_matrix_cnt 输出
@@ -108,6 +116,10 @@ generate
         assign storage_data_flat[k*DATA_WIDTH +: DATA_WIDTH] = storage_output_data[k];
     end
 endgenerate
+
+wire [2:0] rand_r;
+wire [2:0] rand_c;
+wire [4:0] rand_cnt;
 
 // ========================== 2. 解决多驱动问题的核心修改 ==========================
 
@@ -235,14 +247,9 @@ multi_matrix_storage #(
     .data_in_18(storage_input_data[18]),.data_in_19(storage_input_data[19]),.data_in_20(storage_input_data[20]),
     .data_in_21(storage_input_data[21]),.data_in_22(storage_input_data[22]),.data_in_23(storage_input_data[23]),
     .data_in_24(storage_input_data[24]),
-    .req_scale_row( (info_busy) ? info_req_row :
-                         (disp_busy) ? disp_req_row :
-                         req_scale_row ), 
-    .req_scale_col((info_busy) ? info_req_col :
-                         (disp_busy) ? disp_req_col :
-                         req_scale_col ),
-    .req_idx      ((disp_busy) ? disp_req_idx : 
-                         req_index),         
+    .req_scale_row( (info_busy) ? info_qry_row : search_req_row), 
+    .req_scale_col((info_busy) ? info_qry_col : search_req_col ),
+    .req_idx      ((info_busy) ? 3'd0         : search_req_idx),         
     .scale_matrix_cnt(num),
     .matrix_data_0(storage_output_data[0]), .matrix_data_1(storage_output_data[1]), .matrix_data_2(storage_output_data[2]),
     .matrix_data_3(storage_output_data[3]), .matrix_data_4(storage_output_data[4]), .matrix_data_5(storage_output_data[5]),
@@ -491,6 +498,9 @@ matrix_info_display #(
         .qry_row(info_req_row),
         .qry_col(info_req_col),
         .qry_cnt(scale_matrix_cnt)       // 连接存储模块的计数输出
+        .random_r       (rand_r),       // wire [2:0] rand_r
+        .random_c       (rand_c),       // wire [2:0] rand_c
+        .random_cnt     (rand_cnt)      // wire [4:0] rand_cnt
     );
 
 // matrix_search_displayer
@@ -558,11 +568,11 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
-                        3'b001: state = 10'd100;  // 模式1输入并存储
-                        3'b010: state = 10'd200;  // 模式2随机生成
-                        3'b011: state = 10'd300;  // 模式3矩阵展示
-                        3'b100: state = 10'd400;  // 模式4运算
-                        default: state = 10'd000;
+                        3'b001: state <= 10'd100;  // 模式1输入并存储
+                        3'b010: state <= 10'd200;  // 模式2随机生成
+                        3'b011: state <= 10'd300;  // 模式3矩阵展示
+                        3'b100: state <= 10'd400;  // 模式4运算
+                        default: state <= 10'd000;
                     endcase
                 end
             end
@@ -573,10 +583,10 @@ always @(posedge clk or negedge rst_n) begin
                 wr_row <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
-                    state = 9'd110;
+                    state <= 9'd110;
                 end
                 if (btn_return_pulse) begin
-                    state = 9'd000;
+                    state <= 9'd000;
                 end
             end
             
@@ -586,10 +596,10 @@ always @(posedge clk or negedge rst_n) begin
                 wr_col <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
-                    state = 9'd120;
+                    state <= 9'd120;
                 end
                 if (btn_return_pulse) begin
-                    state = 9'd000;
+                    state <= 9'd000;
                 end
             end
             
@@ -635,10 +645,10 @@ always @(posedge clk or negedge rst_n) begin
                 rand_row <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
-                    state = 9'd210;
+                    state <= 9'd210;
                 end
                 if (btn_return_pulse) begin
-                    state = 9'd000;
+                    state <= 9'd000;
                 end
             end
             
@@ -649,7 +659,7 @@ always @(posedge clk or negedge rst_n) begin
                 rand_col <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
-                    state = 9'd220;
+                    state <= 9'd220;
                 end
             end
 
@@ -659,7 +669,7 @@ always @(posedge clk or negedge rst_n) begin
                 rand_gen_en <= 1'b1;
                 if(rand_update_done) begin
                     rand_gen_en <= 1'b0;
-                    state = 9'd230;
+                    state <= 9'd230;
                 end
                 
             end
@@ -733,10 +743,10 @@ always @(posedge clk or negedge rst_n) begin
                 
                 start_info_display_pulse<=1'd1;
                 if (btn_confirm_pulse) begin
-                    state = 9'd310;
+                    state <= 9'd310;
                 end
                 if (btn_return_pulse) begin
-                    state = 9'd000;
+                    state <= 9'd000;
                 end
             end
 
@@ -748,7 +758,7 @@ always @(posedge clk or negedge rst_n) begin
                 start_info_display_pulse<=1'd0;
                 display_row <= rx_data-"0";
                 if (btn_confirm_pulse) begin
-                    state = 9'd320;
+                    state <= 9'd320;
                 end
                 if (btn_return_pulse) begin
                     state <= 9'd000;
@@ -794,16 +804,16 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
-                        3'b001: state = 10'd410;  // 模式1矩阵转置
-                        3'b010: state = 10'd420;  // 模式2矩阵加法
-                        3'b011: state = 10'd430;  // 模式3矩阵标量
-                        3'b100: state = 10'd440;  // 模式4矩阵乘法
-                        3'b101: state = 10'd450;  // 模式5卷积运算
+                        3'b001: state <= 10'd410;  // 模式1矩阵转置
+                        3'b010: state <= 10'd420;  // 模式2矩阵加法
+                        3'b011: state <= 10'd430;  // 模式3矩阵标量
+                        3'b100: state <= 10'd440;  // 模式4矩阵乘法
+                        3'b101: state <= 10'd450;  // 模式5卷积运算
                     endcase
                 end
             
                 if (btn_return_pulse) begin
-                    state = 10'd000;
+                    state <= 10'd000;
                 end
             end
             
@@ -813,13 +823,13 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
-                    state = 10'd510;
+                    state <= 10'd510;
                 end
                 if (btn_confirm_pulse) begin
-                    state = 10'd411;
+                    state <= 10'd411;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -829,10 +839,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_c1 <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd412;
+                    state <= 10'd412;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -844,10 +854,10 @@ always @(posedge clk or negedge rst_n) begin
                 req_scale_row<=matrix_opr_1_r1;
                 req_index<=req_index;
                 if (btn_confirm_pulse) begin
-                    state = 10'd413;
+                    state <= 10'd413;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             10'd413: begin
@@ -909,10 +919,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_display_data[23] <=trans_res[23];
                 matrix_display_data[24] <=trans_res[24];
                 if (btn_confirm_pulse) begin
-                    state = 10'd415;
+                    state <= 10'd415;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -924,7 +934,7 @@ always @(posedge clk or negedge rst_n) begin
                     // 将display_start和trans_en变为0
                     display_start <= 0;
                     trans_en <= 0;
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -934,13 +944,13 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
-                    state = 10'd520;
+                    state <= 10'd520;
                 end
                 if (btn_confirm_pulse) begin
-                    state = 10'd421;
+                    state <= 10'd421;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -950,10 +960,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_c1 <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd422;
+                    state <= 10'd422;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -965,10 +975,10 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入加法模块1端口
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd423;
+                    state <= 10'd423;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             10'd423:begin
@@ -1005,10 +1015,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_2_r2 <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd424;
+                    state <= 10'd424;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1018,14 +1028,14 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_2_c2 <=rx_buf-"0";
                 if (btn_confirm_pulse) begin
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
-                        state = 10'd425;
+                        state <= 10'd425;
                     end else begin
                         // 回到输入第二个矩阵的r，并触发倒计时
-                        state = 10'd423;
+                        state <= 10'd423;
                     end
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1038,10 +1048,10 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入加法模块2端口
                
                 if (btn_confirm_pulse) begin
-                    state = 10'd426;
+                    state <= 10'd426;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             10'd427: begin
@@ -1103,10 +1113,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_display_data[23] <=add_res[23];
                 matrix_display_data[24] <=add_res[24];
                 if (btn_confirm_pulse) begin
-                    state = 10'd429;
+                    state <= 10'd429;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1118,7 +1128,7 @@ always @(posedge clk or negedge rst_n) begin
                     // 将display_start和add_en变为0
                     display_start <= 0;
                     add_en <= 0;
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1128,13 +1138,13 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
-                    state = 10'd530;
+                    state <= 10'd530;
                 end
                 if (btn_confirm_pulse) begin
-                    state = 10'd431;
+                    state <= 10'd431;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1144,10 +1154,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_c1 <= rx_buf-"0";
 
                 if (btn_confirm_pulse) begin
-                    state = 10'd432;
+                    state <= 10'd432;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1159,10 +1169,10 @@ always @(posedge clk or negedge rst_n) begin
                 req_scale_row<=matrix_opr_1_r1;
                 req_index<=req_index;
                 if (btn_confirm_pulse) begin
-                    state = 10'd433;
+                    state <= 10'd433;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             10'd433: begin
@@ -1199,10 +1209,10 @@ always @(posedge clk or negedge rst_n) begin
                 scalar_value <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd434;
+                    state <= 10'd434;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1211,10 +1221,10 @@ always @(posedge clk or negedge rst_n) begin
                 scalar_en <= 1;
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd435;
+                    state <= 10'd435;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1226,7 +1236,7 @@ always @(posedge clk or negedge rst_n) begin
                     // 将display_start和scalar_en变为0
                     display_start <= 0;
                     scalar_en <= 0;
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1236,13 +1246,13 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
-                    state = 10'd540;
+                    state <= 10'd540;
                 end
                 if (btn_confirm_pulse) begin
-                    state = 10'd441;
+                    state <= 10'd441;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1252,10 +1262,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_c1 <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd442;
+                    state <= 10'd442;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1267,10 +1277,10 @@ always @(posedge clk or negedge rst_n) begin
                 req_scale_row<=matrix_opr_1_r1;
                 req_index<=req_index;
                 if (btn_confirm_pulse) begin
-                    state = 10'd443;
+                    state <= 10'd443;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             10'd443: begin
@@ -1308,10 +1318,10 @@ always @(posedge clk or negedge rst_n) begin
                    req_scale_col<=matrix_opr_2_c2;
                 req_scale_row<=matrix_opr_2_r2;
                 if (btn_confirm_pulse) begin
-                    state = 10'd444;
+                    state <= 10'd444;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1322,14 +1332,14 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_confirm_pulse) begin
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
-                        state = 10'd446;
+                        state <= 10'd446;
                     end else begin
                         // 回到输入第二个矩阵的r，并触发倒计时
-                        state = 10'd443;
+                        state <= 10'd443;
                     end
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1341,10 +1351,10 @@ always @(posedge clk or negedge rst_n) begin
                 req_scale_row<=matrix_opr_2_r2;
                 req_index<=req_index;
                 if (btn_confirm_pulse) begin
-                    state = 10'd447;
+                    state <= 10'd447;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             10'd447: begin
@@ -1380,10 +1390,10 @@ always @(posedge clk or negedge rst_n) begin
                 mult_en <= 1;
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd449;
+                    state <= 10'd449;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1395,7 +1405,7 @@ always @(posedge clk or negedge rst_n) begin
                     // 将display_start和mult_en变为0
                     display_start <= 0;
                     mult_en <= 0;
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1403,13 +1413,13 @@ always @(posedge clk or negedge rst_n) begin
                 // 用户输入3*3矩阵
                 
                 if (btn_random_pulse) begin
-                    state = 10'd550;
+                    state <= 10'd550;
                 end
                 if (btn_confirm_pulse) begin
-                    state = 10'd451;
+                    state <= 10'd451;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1418,10 +1428,10 @@ always @(posedge clk or negedge rst_n) begin
                 conv_en <= 1;
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd452;
+                    state <= 10'd452;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
@@ -1433,57 +1443,57 @@ always @(posedge clk or negedge rst_n) begin
                     // 将display_start和conv_en变为0
                     display_start <= 0;
                     conv_en <= 0;
-                    state = 10'd400;
+                    state <= 10'd400;
                 end
             end
             
             10'd510: begin
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd511;
+                    state <= 10'd511;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd410;
+                    state <= 10'd410;
                 end
             end
             
             10'd520: begin
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd521;
+                    state <= 10'd521;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd420;
+                    state <= 10'd420;
                 end
             end
             
             10'd530: begin
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd531;
+                    state <= 10'd531;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd430;
+                    state <= 10'd430;
                 end
             end
             
             10'd540: begin
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd541;
+                    state <= 10'd541;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd440;
+                    state <= 10'd440;
                 end
             end
             
             10'd550: begin
                 
                 if (btn_confirm_pulse) begin
-                    state = 10'd551;
+                    state <= 10'd551;
                 end
                 if (btn_return_pulse) begin
-                    state = 10'd450;
+                    state <= 10'd450;
                 end
             end
         endcase
