@@ -783,7 +783,7 @@ always @(posedge clk or negedge rst_n) begin
                 
                 // 等待用户按下返回或确认键退出显示
                 if (btn_return_pulse || btn_confirm_pulse) begin
-                    
+                    state <= 9'd000;
                     start_search_display_pulse <= 1'b0;   
                 end
             end
