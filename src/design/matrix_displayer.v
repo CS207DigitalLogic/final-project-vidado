@@ -67,14 +67,21 @@ module matrix_displayer(
 
             case (state)
                 S_IDLE: begin
-                    busy <= 0;
-                    if (start) begin
-                        busy <= 1;        // 只要一开始，立马置忙
+                busy <= 0;
+                if (start) begin
+                    // 边界检查：如果是 0x0 或无效尺寸，直接不启动
+                    if (matrix_row == 0 || matrix_col == 0) begin
+                       
+                        state <= S_IDLE; 
+                    end else begin
+                        // 正常启动逻辑
+                        busy <= 1;
                         r_cnt <= 0;
                         c_cnt <= 0;
                         state <= S_SEND_DIGIT;
                     end
                 end
+            end
 
                 S_PREPARE: begin
                     // 将输入端口的数据锁存到内部缓存，保证显示时数据稳定
