@@ -120,7 +120,7 @@ module matrix_info_display#(
 
                 S_SCAN_READ: begin
                     // qry_cnt 是当前规格 (qry_row x qry_col) 的矩阵数量
-                    if (qry_cnt > 0) begin
+                    //if (qry_cnt > 0) begin
                         
                         // ===========================
                         // [新增] 随机选取核心逻辑
@@ -141,10 +141,10 @@ module matrix_info_display#(
                         uart_tx_data <= qry_row + "0";
                         return_state <= S_SEND_X; // 下一步去发 'x'
                         state <= S_TX_START;      // 跳转到发送子程序
-                    end else begin
+                    //end else begin
                         // 数量为0，跳过
-                        state <= S_LIST_CHECK;
-                    end
+                    //    state <= S_LIST_CHECK;
+                    //end
                 end
                 S_SEND_X: begin
                      uart_tx_data <= "x";
