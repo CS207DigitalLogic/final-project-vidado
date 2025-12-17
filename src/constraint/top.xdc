@@ -12,6 +12,7 @@ set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports uart_rx]
 # -------------------------- 按键约束（btn_pin[0]用于切换状态） --------------------------
 set_property -dict {PACKAGE_PIN R11 IOSTANDARD LVCMOS33} [get_ports btn_confirm]
 set_property -dict {PACKAGE_PIN V1  IOSTANDARD LVCMOS33} [get_ports btn_return]
+set_property -dict {PACKAGE_PIN U4  IOSTANDARD LVCMOS33} [get_ports btn_random]
 
 
 # -------------------------- 数码管位选约束（seg_cs_pin[0]~[7]） --------------------------
@@ -48,4 +49,46 @@ set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports {seg_data_1_p
 set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS33} [get_ports {sw_mode[2]}]
 set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports {sw_mode[1]}]
 set_property -dict {PACKAGE_PIN R1 IOSTANDARD LVCMOS33} [get_ports {sw_mode[0]}]
-set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports led_error_status]
+set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports led_error_status]
+
+set_property PACKAGE_PIN G4 [get_ports {led[0]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[0]}]
+
+set_property PACKAGE_PIN G3 [get_ports {led[1]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[1]}]
+
+set_property PACKAGE_PIN J4 [get_ports {led[2]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[2]}]
+
+set_property PACKAGE_PIN H4 [get_ports {led[3]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[3]}]
+
+set_property PACKAGE_PIN J3 [get_ports {led[4]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[4]}]
+
+set_property PACKAGE_PIN J2 [get_ports {led[5]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[5]}]
+
+set_property PACKAGE_PIN K2 [get_ports {led[6]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[6]}]
+
+set_property PACKAGE_PIN K1 [get_ports {led[7]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[7]}]
+
+set_property PACKAGE_PIN H6 [get_ports {led[8]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[8]}]
+
+set_property PACKAGE_PIN H5 [get_ports {led[9]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[9]}]
+
+set_property PACKAGE_PIN J5 [get_ports {led[10]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[10]}]
+
+set_property PACKAGE_PIN K6 [get_ports {led[11]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[11]}]
+
+set_property PACKAGE_PIN L1 [get_ports {led[12]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[12]}]
+
+set_property PACKAGE_PIN M1 [get_ports {led[13]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {led[13]}]
