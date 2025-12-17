@@ -81,23 +81,16 @@ reg [DATA_WIDTH-1:0] scalar_value;
 reg  start_info_display_pulse;
 reg start_search_display_pulse;
 
-// 显示模块与存储模块的接口信号
-    wire info_busy;
-    wire [2:0]  info_qry_row;       // Info 模块查询行
-    wire [2:0]  info_qry_col;       // Info 模块查询列
-    wire [2:0] info_req_row;
-    wire [2:0] info_req_col;
+// --- Matrix Info Display 专用信号 ---
+wire        info_busy;          // Info 模块忙信号
+wire        info_tx_start;      // Info 模块请求发送
+wire [7:0]  info_tx_data;       // Info 模块发送的数据
+wire [2:0]  info_qry_row;       // Info 模块查询行
+wire [2:0]  info_qry_col;       // Info 模块查询列
 
-    // 2. Search 模块的信号
-    wire [2:0]  search_req_row;
-    wire [2:0]  search_req_col;
-    wire [2:0]  search_req_idx;
-
-
-
-    wire uart_tx_start_info;
-    wire [7:0] uart_tx_data_info;
-    wire [2:0] scale_matrix_cnt; // 对应存储模块的 scale_matrix_cnt 输出
+wire uart_tx_start_info;
+wire [7:0] uart_tx_data_info;
+wire [2:0] scale_matrix_cnt; // 对应存储模块的 scale_matrix_cnt 输出
 
 
 // --- Search Displayer 相关信号 ---
@@ -196,8 +189,8 @@ uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_rx (
 
 uart_tx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_tx (
     .clk(clk), .rst_n(rst_n),
-    .tx_start((info_busy) ? info_tx_start : search_tx_start), 
-    .tx_data ( (info_busy) ? info_tx_data  : search_tx_data)，
+    .tx_start((info_busy) ? info_tx_start : disp_tx_start), 
+    .tx_data ( (info_busy) ? info_tx_data  : disp_tx_data),
     .tx         (uart_tx),
         .tx_busy    (tx_busy)
 );
@@ -247,9 +240,9 @@ multi_matrix_storage #(
     .data_in_18(storage_input_data[18]),.data_in_19(storage_input_data[19]),.data_in_20(storage_input_data[20]),
     .data_in_21(storage_input_data[21]),.data_in_22(storage_input_data[22]),.data_in_23(storage_input_data[23]),
     .data_in_24(storage_input_data[24]),
-    .req_scale_row( (info_busy) ? info_qry_row : search_req_row), 
-    .req_scale_col((info_busy) ? info_qry_col : search_req_col ),
-    .req_idx      ((info_busy) ? 3'd0         : search_req_idx),         
+    .req_scale_row( (info_busy) ? info_qry_row : req_scale_row),
+    .req_scale_col((info_busy) ? info_qry_col : req_scale_col),
+    .req_idx      ((info_busy) ? 3'd0         : disp_req_idx),         
     .scale_matrix_cnt(num),
     .matrix_data_0(storage_output_data[0]), .matrix_data_1(storage_output_data[1]), .matrix_data_2(storage_output_data[2]),
     .matrix_data_3(storage_output_data[3]), .matrix_data_4(storage_output_data[4]), .matrix_data_5(storage_output_data[5]),
@@ -493,11 +486,11 @@ matrix_info_display #(
         .start_req(start_info_display_pulse), // 生成一个开始脉冲（例如按下确认键且模式匹配时）
         .busy(info_busy),
         .uart_tx_busy(tx_busy),     // 连接现有的 uart_tx_busy
-        .uart_tx_start(uart_tx_start_info),
-        .uart_tx_data(uart_tx_data_info),
-        .qry_row(info_req_row),
-        .qry_col(info_req_col),
-        .qry_cnt(scale_matrix_cnt)       // 连接存储模块的计数输出
+        .uart_tx_start(info_tx_start),
+        .uart_tx_data(info_tx_data),
+        .qry_row(info_qry_row),
+        .qry_col(info_qry_col),
+        .qry_cnt(scale_matrix_cnt),       // 连接存储模块的计数输出
         .random_r       (rand_r),       // wire [2:0] rand_r
         .random_c       (rand_c),       // wire [2:0] rand_c
         .random_cnt     (rand_cnt)      // wire [4:0] rand_cnt
@@ -604,7 +597,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             9'd120: begin
-                // uart传入矩阵，存储，我来
+                // uart传入矩阵，存储
                 
                 //1. 监测 RX Handler 的完成信号
                 if (rx_handler_done) begin
@@ -757,7 +750,7 @@ always @(posedge clk or negedge rst_n) begin
                 start_search_display_pulse <= 1'b0;
                 start_info_display_pulse<=1'd0;
                 display_row <= rx_data-"0";
-                if (btn_confirm_pulse) begin
+                if (btn_confirm_pulse && info_busy) begin
                     state <= 9'd320;
                 end
                 if (btn_return_pulse) begin
@@ -790,7 +783,6 @@ always @(posedge clk or negedge rst_n) begin
             end
             9'd330: begin
             
-                
                 // 等待用户按下返回或确认键退出显示
                 if (btn_return_pulse || btn_confirm_pulse) begin
                     state <= 9'd000;
