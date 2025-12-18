@@ -293,41 +293,40 @@ module matrix_transpose #(
     always@(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             busy <= 0;
-            isTranspose <= 0;
-            // 复位中转数据
-            transpose_data_0 <= 0; transpose_data_1 <= 0; transpose_data_2 <= 0; transpose_data_3 <= 0; transpose_data_4 <= 0;
-            transpose_data_5 <= 0; transpose_data_6 <= 0; transpose_data_7 <= 0; transpose_data_8 <= 0; transpose_data_9 <= 0;
-            transpose_data_10 <= 0; transpose_data_11 <= 0; transpose_data_12 <= 0; transpose_data_13 <= 0; transpose_data_14 <= 0;
-            transpose_data_15 <= 0; transpose_data_16 <= 0; transpose_data_17 <= 0; transpose_data_18 <= 0; transpose_data_19 <= 0;
-            transpose_data_20 <= 0; transpose_data_21 <= 0; transpose_data_22 <= 0; transpose_data_23 <= 0; transpose_data_24 <= 0;
-            // 初始化输出数据
-            r_out = 0;
-            c_out = 0;
-            data_out_0 = 0;
-            data_out_1 = 0;
-            data_out_2 = 0;
-            data_out_3 = 0;
-            data_out_4 = 0;
-            data_out_5 = 0;
-            data_out_6 = 0;
-            data_out_7 = 0;
-            data_out_8 = 0;
-            data_out_9 = 0;
-            data_out_10 = 0;
-            data_out_11 = 0;
-            data_out_12 = 0;
-            data_out_13 = 0;
-            data_out_14 = 0;
-            data_out_15 = 0;
-            data_out_16 = 0;
-            data_out_17 = 0;
-            data_out_18 = 0;
-            data_out_19 = 0;
-            data_out_20 = 0;
-            data_out_21 = 0;
-            data_out_22 = 0;
-            data_out_23 = 0;
-            data_out_24 = 0;
+//            // 复位中转数据
+//            transpose_data_0 <= 0; transpose_data_1 <= 0; transpose_data_2 <= 0; transpose_data_3 <= 0; transpose_data_4 <= 0;
+//            transpose_data_5 <= 0; transpose_data_6 <= 0; transpose_data_7 <= 0; transpose_data_8 <= 0; transpose_data_9 <= 0;
+//            transpose_data_10 <= 0; transpose_data_11 <= 0; transpose_data_12 <= 0; transpose_data_13 <= 0; transpose_data_14 <= 0;
+//            transpose_data_15 <= 0; transpose_data_16 <= 0; transpose_data_17 <= 0; transpose_data_18 <= 0; transpose_data_19 <= 0;
+//            transpose_data_20 <= 0; transpose_data_21 <= 0; transpose_data_22 <= 0; transpose_data_23 <= 0; transpose_data_24 <= 0;
+//            // 初始化输出数据
+//            r_out = 0;
+//            c_out = 0;
+//            data_out_0 = 0;
+//            data_out_1 = 0;
+//            data_out_2 = 0;
+//            data_out_3 = 0;
+//            data_out_4 = 0;
+//            data_out_5 = 0;
+//            data_out_6 = 0;
+//            data_out_7 = 0;
+//            data_out_8 = 0;
+//            data_out_9 = 0;
+//            data_out_10 = 0;
+//            data_out_11 = 0;
+//            data_out_12 = 0;
+//            data_out_13 = 0;
+//            data_out_14 = 0;
+//            data_out_15 = 0;
+//            data_out_16 = 0;
+//            data_out_17 = 0;
+//            data_out_18 = 0;
+//            data_out_19 = 0;
+//            data_out_20 = 0;
+//            data_out_21 = 0;
+//            data_out_22 = 0;
+//            data_out_23 = 0;
+//            data_out_24 = 0;
         end else begin
             // 开始运算且排序未完成
             if (en && !order_en) begin
@@ -335,21 +334,20 @@ module matrix_transpose #(
             // 使能信号关闭
             end else if (!en) begin
                 busy <= 0;
-                isTranspose <= 0;
-                // 复位中转数据
-                transpose_data_0 <= 0; transpose_data_1 <= 0; transpose_data_2 <= 0; transpose_data_3 <= 0; transpose_data_4 <= 0;
-                transpose_data_5 <= 0; transpose_data_6 <= 0; transpose_data_7 <= 0; transpose_data_8 <= 0; transpose_data_9 <= 0;
-                transpose_data_10 <= 0; transpose_data_11 <= 0; transpose_data_12 <= 0; transpose_data_13 <= 0; transpose_data_14 <= 0;
-                transpose_data_15 <= 0; transpose_data_16 <= 0; transpose_data_17 <= 0; transpose_data_18 <= 0; transpose_data_19 <= 0;
-                transpose_data_20 <= 0; transpose_data_21 <= 0; transpose_data_22 <= 0; transpose_data_23 <= 0; transpose_data_24 <= 0;
-                // 重置输出数据
-                r_out <= 0;
-                c_out <= 0;
-                data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
-                data_out_5 <= 0; data_out_6 <= 0; data_out_7 <= 0; data_out_8 <= 0; data_out_9 <= 0;
-                data_out_10 <= 0; data_out_11 <= 0; data_out_12 <= 0; data_out_13 <= 0; data_out_14 <= 0;
-                data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
-                data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
+//                // 复位中转数据
+//                transpose_data_0 <= 0; transpose_data_1 <= 0; transpose_data_2 <= 0; transpose_data_3 <= 0; transpose_data_4 <= 0;
+//                transpose_data_5 <= 0; transpose_data_6 <= 0; transpose_data_7 <= 0; transpose_data_8 <= 0; transpose_data_9 <= 0;
+//                transpose_data_10 <= 0; transpose_data_11 <= 0; transpose_data_12 <= 0; transpose_data_13 <= 0; transpose_data_14 <= 0;
+//                transpose_data_15 <= 0; transpose_data_16 <= 0; transpose_data_17 <= 0; transpose_data_18 <= 0; transpose_data_19 <= 0;
+//                transpose_data_20 <= 0; transpose_data_21 <= 0; transpose_data_22 <= 0; transpose_data_23 <= 0; transpose_data_24 <= 0;
+//                // 重置输出数据
+//                r_out <= 0;
+//                c_out <= 0;
+//                data_out_0 <= 0; data_out_1 <= 0; data_out_2 <= 0; data_out_3 <= 0; data_out_4 <= 0;
+//                data_out_5 <= 0; data_out_6 <= 0; data_out_7 <= 0; data_out_8 <= 0; data_out_9 <= 0;
+//                data_out_10 <= 0; data_out_11 <= 0; data_out_12 <= 0; data_out_13 <= 0; data_out_14 <= 0;
+//                data_out_15 <= 0; data_out_16 <= 0; data_out_17 <= 0; data_out_18 <= 0; data_out_19 <= 0;
+//                data_out_20 <= 0; data_out_21 <= 0; data_out_22 <= 0; data_out_23 <= 0; data_out_24 <= 0;
             end else if (en && isRestored) begin
                 if (busy && count < 1) begin
                     count <= count + 1;
@@ -364,7 +362,9 @@ module matrix_transpose #(
     // 只在en从0变化到1的时候单次赋值，即使输入出现变化，只要en没有被清零就不会改变输出
     // 所以en初始值为0，在使用该模块时先确保输入data正确，后将en赋1，离开转置运算时将en重置
     always@(posedge clk) begin
-        if(transpose_en && !isTranspose) begin
+        if (!en) begin
+            isTranspose <= 0;
+        end else if(transpose_en && !isTranspose) begin
             r_out = c;
             c_out = r;
             
