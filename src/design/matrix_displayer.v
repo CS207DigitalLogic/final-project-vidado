@@ -78,7 +78,7 @@ module matrix_displayer(
                         busy <= 1;
                         r_cnt <= 0;
                         c_cnt <= 0;
-                        state <= S_SEND_DIGIT;
+                        state <= S_PREPARE;
                     end
                 end
             end
