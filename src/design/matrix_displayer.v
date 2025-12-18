@@ -26,14 +26,16 @@ module matrix_displayer(
 );
 
     // 状态机定义
-    localparam S_IDLE       = 0;
-    localparam S_PREPARE    = 1;
-    localparam S_SEND_DIGIT = 2;
-    localparam S_WAIT_DIGIT = 3;
-    localparam S_SEND_SEP   = 4;
-    localparam S_WAIT_SEP   = 5;
-    localparam S_DONE       = 6; 
-    localparam S_WAIT_RELEASE = 7; 
+    localparam S_IDLE           = 0;
+    localparam S_PREPARE        = 1;
+    localparam S_SEND_DIGIT     = 2;
+    localparam S_WAIT_DIGIT     = 3; // 等待数字开始发送(Busy变高)
+    localparam S_SEND_SEP       = 4;
+    localparam S_WAIT_SEP_START = 5; // 等待分隔符开始发送(Busy变高)
+    localparam S_WAIT_SEP       = 6; // 等待分隔符发送完毕(Busy变低)
+    localparam S_DONE           = 7; 
+    localparam S_WAIT_RELEASE   = 8; 
+    
     reg [3:0] state;
     reg [2:0] r_cnt; // 行计数
     reg [2:0] c_cnt; // 列计数
@@ -49,7 +51,7 @@ module matrix_displayer(
     function [7:0] int2ascii;
         input [7:0] val;
         begin
-            int2ascii = val + "0"; // 简单处理0-9，如果支持两位数需要更复杂逻辑
+            int2ascii = val + "0"; // 简单处理0-9
         end
     endfunction
 
@@ -62,29 +64,29 @@ module matrix_displayer(
             r_cnt <= 0;
             c_cnt <= 0;
         end else begin
-            // 默认拉低 Start
-            tx_start <= 0;
-
+            // 默认拉低 Start (脉冲形式)
+            // 注意：在状态机特定状态下会将其置1，这里只是为了防止未赋值时的推断
+            // 实际控制权在 case 语句中
+            
             case (state)
                 S_IDLE: begin
-                busy <= 0;
-                if (start) begin
-                    // 边界检查：如果是 0x0 或无效尺寸，直接不启动
-                    if (matrix_row == 0 || matrix_col == 0) begin
-                       
-                        state <= S_IDLE; 
-                    end else begin
-                        // 正常启动逻辑
-                        busy <= 1;
-                        r_cnt <= 0;
-                        c_cnt <= 0;
-                        state <= S_PREPARE;
+                    busy <= 0;
+                    tx_start <= 0;
+                    if (start) begin
+                        // 边界检查
+                        if (matrix_row == 0 || matrix_col == 0) begin
+                            state <= S_IDLE; 
+                        end else begin
+                            busy <= 1;
+                            r_cnt <= 0;
+                            c_cnt <= 0;
+                            state <= S_PREPARE;
+                        end
                     end
                 end
-            end
 
                 S_PREPARE: begin
-                    // 将输入端口的数据锁存到内部缓存，保证显示时数据稳定
+                    // 锁存数据
                     data_cache[0]<=d0;   data_cache[1]<=d1;   data_cache[2]<=d2;   data_cache[3]<=d3;   data_cache[4]<=d4;
                     data_cache[5]<=d5;   data_cache[6]<=d6;   data_cache[7]<=d7;   data_cache[8]<=d8;   data_cache[9]<=d9;
                     data_cache[10]<=d10; data_cache[11]<=d11; data_cache[12]<=d12; data_cache[13]<=d13; data_cache[14]<=d14;
@@ -98,39 +100,48 @@ module matrix_displayer(
 
                 S_SEND_DIGIT: begin
                     if (!tx_busy) begin
-                        // 1. 取出当前数字并转ASCII
+                        // 1. 发送数字
                         current_val = data_cache[current_index];
                         tx_data <= int2ascii(current_val);
                         tx_start <= 1;
-                        state <= S_WAIT_DIGIT;
+                        state <= S_WAIT_DIGIT; // 去等待它变忙
                     end
                 end
 
                 S_WAIT_DIGIT: begin
-                    // 等待串口忙碌起来，或者发送完成
-                    // 一般这里只要发了start，下一周期tx_busy就会变高，或者我们可以简单给点延时
-                    // 这里采用简单的状态跳转，因为 tx_busy 逻辑通常是立刻响应
-                    tx_start <= 1'b0;
-                    state <= S_SEND_SEP;
+                    tx_start <= 1'b0; // 撤销 Start 信号
+                    // 关键修复：必须等待 UART 确实开始工作了(Busy变高)
+                    // 否则如果跑太快，直接跳到下一个状态会误判 Busy 为低
+                    if (tx_busy == 1'b1) begin
+                        state <= S_SEND_SEP;
+                    end
                 end
 
                 S_SEND_SEP: begin
-                    if (!tx_busy) begin
-                        // 判断是行末还是中间
+                
+                    if (!tx_busy) begin // 等待数字发送结束
+                        // 2. 发送分隔符
                         if (c_cnt == matrix_col - 1) begin
-                            tx_data <= 8'h0A; // 换行 (Line Feed)
-                            // 某些终端可能需要 0D 0A，这里简化为 \n
+                            tx_data <= 8'h0A; // 换行
                         end else begin
                             tx_data <= 8'h20; // 空格
                         end
                         tx_start <= 1;
+                        state <= S_WAIT_SEP_START; // 去等待它变忙
+                    end
+                end
+
+                S_WAIT_SEP_START: begin
+                    tx_start <= 1'b0;
+                    // 关键修复：确保 UART 已经捕获到分隔符的发送请求
+                    if (tx_busy == 1'b1) begin
                         state <= S_WAIT_SEP;
                     end
                 end
 
                 S_WAIT_SEP: begin
                     tx_start <= 1'b0;
-                    if (!tx_busy) begin // 等待分隔符发完
+                    if (!tx_busy) begin // 等待分隔符发送完毕
                         // 更新计数器
                         if (c_cnt == matrix_col - 1) begin
                             c_cnt <= 0;
@@ -154,13 +165,12 @@ module matrix_displayer(
 
                 S_WAIT_RELEASE: begin
                     if (start == 1'b0) begin
-                        // 只有当外界把 start 撤销了，才回到原点
+                        //等待 Top 模块撤销 Start 信号，防止重复触发
                         state <= S_IDLE;
                     end
                 end
-
-
                 
+                default: state <= S_IDLE;
             endcase
         end
     end
