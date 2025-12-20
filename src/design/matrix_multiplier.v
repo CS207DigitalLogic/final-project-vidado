@@ -394,6 +394,7 @@ module matrix_multiplier #(
     
     // === 5个乘法器 ===
     wire [DATA_WIDTH-1:0] product_0, product_1, product_2, product_3, product_4;
+    wire [DATA_WIDTH-1:0] sum_ab, sum_cd, sum_abcd;
     wire [DATA_WIDTH-1:0] sum_result;
     
     // 被选中的矩阵A元素（固定行）
@@ -407,7 +408,10 @@ module matrix_multiplier #(
     assign product_2 = a_elem_2 * b_elem_2;
     assign product_3 = a_elem_3 * b_elem_3;
     assign product_4 = a_elem_4 * b_elem_4;
-    assign sum_result = product_0 + product_1 + product_2 + product_3 + product_4;
+    assign sum_ab = product_0 + product_1;
+    assign sum_cd = product_2 + product_3;
+    assign sum_abcd = sum_ab + sum_cd;
+    assign sum_result = sum_abcd + product_4;
     
     // === 组合逻辑选择元素 ===
     always @(*) begin
@@ -508,6 +512,7 @@ module matrix_multiplier #(
     reg isCalculated;
     reg internal_busy;
     reg isCompleted;
+    reg [8:0] assign_counter;
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             // 复位所有寄存器和输出
@@ -545,6 +550,7 @@ module matrix_multiplier #(
                     c_out <= c2;
                     internal_busy <= 1;
                     calc_counter <= 0;
+                    assign_counter <= 0;
                     isValid <= 1;
                 end
                 else begin
@@ -552,41 +558,48 @@ module matrix_multiplier #(
                     isValid <= 0;
                 end
             end else if (internal_busy) begin
-                // 忙状态：进行计算和存储
-                // 正在计算：存储上一个时钟周期的结果
-                case(calc_counter)
-                    0: multiplied_data_0 <= sum_result;
-                    1: multiplied_data_1 <= sum_result;
-                    2: multiplied_data_2 <= sum_result;
-                    3: multiplied_data_3 <= sum_result;
-                    4: multiplied_data_4 <= sum_result;
-                    5: multiplied_data_5 <= sum_result;
-                    6: multiplied_data_6 <= sum_result;
-                    7: multiplied_data_7 <= sum_result;
-                    8: multiplied_data_8 <= sum_result;
-                    9: multiplied_data_9 <= sum_result;
-                    10: multiplied_data_10 <= sum_result;
-                    11: multiplied_data_11 <= sum_result;
-                    12: multiplied_data_12 <= sum_result;
-                    13: multiplied_data_13 <= sum_result;
-                    14: multiplied_data_14 <= sum_result;
-                    15: multiplied_data_15 <= sum_result;
-                    16: multiplied_data_16 <= sum_result;
-                    17: multiplied_data_17 <= sum_result;
-                    18: multiplied_data_18 <= sum_result;
-                    19: multiplied_data_19 <= sum_result;
-                    20: multiplied_data_20 <= sum_result;
-                    21: multiplied_data_21 <= sum_result;
-                    22: multiplied_data_22 <= sum_result;
-                    23: multiplied_data_23 <= sum_result;
-                    24: multiplied_data_24 <= sum_result;
-                endcase
+                // 只在特定的计数器值进行赋值：4,9,14,19,24,29,...124
+                // 这些值满足：assign_counter % 5 == 4
+                if ((assign_counter + 1) % 5 == 0) begin
+                    // 进入case进行赋值
+                    case(calc_counter)
+                        0: multiplied_data_0 <= sum_result;
+                        1: multiplied_data_1 <= sum_result;
+                        2: multiplied_data_2 <= sum_result;
+                        3: multiplied_data_3 <= sum_result;
+                        4: multiplied_data_4 <= sum_result;
+                        5: multiplied_data_5 <= sum_result;
+                        6: multiplied_data_6 <= sum_result;
+                        7: multiplied_data_7 <= sum_result;
+                        8: multiplied_data_8 <= sum_result;
+                        9: multiplied_data_9 <= sum_result;
+                        10: multiplied_data_10 <= sum_result;
+                        11: multiplied_data_11 <= sum_result;
+                        12: multiplied_data_12 <= sum_result;
+                        13: multiplied_data_13 <= sum_result;
+                        14: multiplied_data_14 <= sum_result;
+                        15: multiplied_data_15 <= sum_result;
+                        16: multiplied_data_16 <= sum_result;
+                        17: multiplied_data_17 <= sum_result;
+                        18: multiplied_data_18 <= sum_result;
+                        19: multiplied_data_19 <= sum_result;
+                        20: multiplied_data_20 <= sum_result;
+                        21: multiplied_data_21 <= sum_result;
+                        22: multiplied_data_22 <= sum_result;
+                        23: multiplied_data_23 <= sum_result;
+                        24: multiplied_data_24 <= sum_result;
+                    endcase
+                    
+                    if (calc_counter < 24) begin
+                        calc_counter <= calc_counter + 1;
+                    end
+                end
                 
-                // 递增计数器
-                if (calc_counter < 24) begin
-                    calc_counter <= calc_counter + 1;
+                if (assign_counter < 124) begin
+                    assign_counter <= assign_counter + 1;
                 end else begin
-                    // 完成所有25个元素的计算
+                    // assign_counter到达124，计算完成
+                    assign_counter <= 0;
                     internal_busy <= 0;
                     isCalculated <= 1;
                     calc_counter <= 0;

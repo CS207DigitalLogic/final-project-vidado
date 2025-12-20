@@ -159,14 +159,16 @@ module matrix_conv#(
     // === 加法树（9个数求和） ===
     wire [DATA_WIDTH-1:0] final_sum;  // 最终和
     
-    // 第一级加法：分成3组，每组3个
-    wire [DATA_WIDTH-1:0] sum_group0, sum_group1, sum_group2;
-    assign sum_group0 = mul_result_0 + mul_result_1 + mul_result_2;
-    assign sum_group1 = mul_result_3 + mul_result_4 + mul_result_5;
-    assign sum_group2 = mul_result_6 + mul_result_7 + mul_result_8;
-    
-    // 第二级加法：3组相加
-    assign final_sum = sum_group0 + sum_group1 + sum_group2;
+    // 加法（含乘法5周期）
+    wire [DATA_WIDTH-1:0] sum_group0, sum_group1, sum_group2, sum_group3, sum_group01, sum_group23, sum_group0123;
+    assign sum_group0 = mul_result_0 + mul_result_1;
+    assign sum_group1 = mul_result_2 + mul_result_3;
+    assign sum_group2 = mul_result_4 + mul_result_5; 
+    assign sum_group3 = mul_result_6 + mul_result_7;
+    assign sum_group01 = sum_group0 + sum_group1; 
+    assign sum_group23 = sum_group2 + sum_group3; 
+    assign sum_group0123 = sum_group01 + sum_group23; 
+    assign final_sum = sum_group0123 + mul_result_8;
     
     // 初始化 ROM 内容
     initial begin
@@ -218,6 +220,7 @@ module matrix_conv#(
     integer addr_r1_c0, addr_r1_c1, addr_r1_c2;
     integer addr_r2_c0, addr_r2_c1, addr_r2_c2;
     // === 组合逻辑：从ROM提取当前3×3窗口 ===
+    reg [6:0] assign_counter;
     always @(row_start_idx, col_start_idx) begin
         base_addr <= row_start_idx * 12 + col_start_idx;  // ROM是12列宽的
         
@@ -281,127 +284,134 @@ module matrix_conv#(
                 // 开始新计算
                 busy <= 1;
                 conv_counter <= 0;
+                assign_counter <= 0;
                 row_start_idx <= 0;
                 col_start_idx <= 0;
             end else if (busy) begin
-                // 正在计算：存储上一个时钟周期的卷积结果
-                case(conv_counter)
-                    // 第一行输出 (8个)
-                    0: data_out_0 <= final_sum[DATA_WIDTH-1:0];
-                    1: data_out_1 <= final_sum[DATA_WIDTH-1:0];
-                    2: data_out_2 <= final_sum[DATA_WIDTH-1:0];
-                    3: data_out_3 <= final_sum[DATA_WIDTH-1:0];
-                    4: data_out_4 <= final_sum[DATA_WIDTH-1:0];
-                    5: data_out_5 <= final_sum[DATA_WIDTH-1:0];
-                    6: data_out_6 <= final_sum[DATA_WIDTH-1:0];
-                    7: data_out_7 <= final_sum[DATA_WIDTH-1:0];
+                if ((assign_counter + 1) % 5 == 0) begin
+                    // 正在计算：存储上一个时钟周期的卷积结果
+                    case(conv_counter)
+                        // 第一行输出 (8个)
+                        0: data_out_0 <= final_sum[DATA_WIDTH-1:0];
+                        1: data_out_1 <= final_sum[DATA_WIDTH-1:0];
+                        2: data_out_2 <= final_sum[DATA_WIDTH-1:0];
+                        3: data_out_3 <= final_sum[DATA_WIDTH-1:0];
+                        4: data_out_4 <= final_sum[DATA_WIDTH-1:0];
+                        5: data_out_5 <= final_sum[DATA_WIDTH-1:0];
+                        6: data_out_6 <= final_sum[DATA_WIDTH-1:0];
+                        7: data_out_7 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第二行输出
+                        8: data_out_8 <= final_sum[DATA_WIDTH-1:0];
+                        9: data_out_9 <= final_sum[DATA_WIDTH-1:0];
+                        10: data_out_10 <= final_sum[DATA_WIDTH-1:0];
+                        11: data_out_11 <= final_sum[DATA_WIDTH-1:0];
+                        12: data_out_12 <= final_sum[DATA_WIDTH-1:0];
+                        13: data_out_13 <= final_sum[DATA_WIDTH-1:0];
+                        14: data_out_14 <= final_sum[DATA_WIDTH-1:0];
+                        15: data_out_15 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第三行输出
+                        16: data_out_16 <= final_sum[DATA_WIDTH-1:0];
+                        17: data_out_17 <= final_sum[DATA_WIDTH-1:0];
+                        18: data_out_18 <= final_sum[DATA_WIDTH-1:0];
+                        19: data_out_19 <= final_sum[DATA_WIDTH-1:0];
+                        20: data_out_20 <= final_sum[DATA_WIDTH-1:0];
+                        21: data_out_21 <= final_sum[DATA_WIDTH-1:0];
+                        22: data_out_22 <= final_sum[DATA_WIDTH-1:0];
+                        23: data_out_23 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第四行输出
+                        24: data_out_24 <= final_sum[DATA_WIDTH-1:0];
+                        25: data_out_25 <= final_sum[DATA_WIDTH-1:0];
+                        26: data_out_26 <= final_sum[DATA_WIDTH-1:0];
+                        27: data_out_27 <= final_sum[DATA_WIDTH-1:0];
+                        28: data_out_28 <= final_sum[DATA_WIDTH-1:0];
+                        29: data_out_29 <= final_sum[DATA_WIDTH-1:0];
+                        30: data_out_30 <= final_sum[DATA_WIDTH-1:0];
+                        31: data_out_31 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第五行输出
+                        32: data_out_32 <= final_sum[DATA_WIDTH-1:0];
+                        33: data_out_33 <= final_sum[DATA_WIDTH-1:0];
+                        34: data_out_34 <= final_sum[DATA_WIDTH-1:0];
+                        35: data_out_35 <= final_sum[DATA_WIDTH-1:0];
+                        36: data_out_36 <= final_sum[DATA_WIDTH-1:0];
+                        37: data_out_37 <= final_sum[DATA_WIDTH-1:0];
+                        38: data_out_38 <= final_sum[DATA_WIDTH-1:0];
+                        39: data_out_39 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第六行输出
+                        40: data_out_40 <= final_sum[DATA_WIDTH-1:0];
+                        41: data_out_41 <= final_sum[DATA_WIDTH-1:0];
+                        42: data_out_42 <= final_sum[DATA_WIDTH-1:0];
+                        43: data_out_43 <= final_sum[DATA_WIDTH-1:0];
+                        44: data_out_44 <= final_sum[DATA_WIDTH-1:0];
+                        45: data_out_45 <= final_sum[DATA_WIDTH-1:0];
+                        46: data_out_46 <= final_sum[DATA_WIDTH-1:0];
+                        47: data_out_47 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第七行输出
+                        48: data_out_48 <= final_sum[DATA_WIDTH-1:0];
+                        49: data_out_49 <= final_sum[DATA_WIDTH-1:0];
+                        50: data_out_50 <= final_sum[DATA_WIDTH-1:0];
+                        51: data_out_51 <= final_sum[DATA_WIDTH-1:0];
+                        52: data_out_52 <= final_sum[DATA_WIDTH-1:0];
+                        53: data_out_53 <= final_sum[DATA_WIDTH-1:0];
+                        54: data_out_54 <= final_sum[DATA_WIDTH-1:0];
+                        55: data_out_55 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第八行输出
+                        56: data_out_56 <= final_sum[DATA_WIDTH-1:0];
+                        57: data_out_57 <= final_sum[DATA_WIDTH-1:0];
+                        58: data_out_58 <= final_sum[DATA_WIDTH-1:0];
+                        59: data_out_59 <= final_sum[DATA_WIDTH-1:0];
+                        60: data_out_60 <= final_sum[DATA_WIDTH-1:0];
+                        61: data_out_61 <= final_sum[DATA_WIDTH-1:0];
+                        62: data_out_62 <= final_sum[DATA_WIDTH-1:0];
+                        63: data_out_63 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第九行输出
+                        64: data_out_64 <= final_sum[DATA_WIDTH-1:0];
+                        65: data_out_65 <= final_sum[DATA_WIDTH-1:0];
+                        66: data_out_66 <= final_sum[DATA_WIDTH-1:0];
+                        67: data_out_67 <= final_sum[DATA_WIDTH-1:0];
+                        68: data_out_68 <= final_sum[DATA_WIDTH-1:0];
+                        69: data_out_69 <= final_sum[DATA_WIDTH-1:0];
+                        70: data_out_70 <= final_sum[DATA_WIDTH-1:0];
+                        71: data_out_71 <= final_sum[DATA_WIDTH-1:0];
+                        
+                        // 第十行输出
+                        72: data_out_72 <= final_sum[DATA_WIDTH-1:0];
+                        73: data_out_73 <= final_sum[DATA_WIDTH-1:0];
+                        74: data_out_74 <= final_sum[DATA_WIDTH-1:0];
+                        75: data_out_75 <= final_sum[DATA_WIDTH-1:0];
+                        76: data_out_76 <= final_sum[DATA_WIDTH-1:0];
+                        77: data_out_77 <= final_sum[DATA_WIDTH-1:0];
+                        78: data_out_78 <= final_sum[DATA_WIDTH-1:0];
+                        79: data_out_79 <= final_sum[DATA_WIDTH-1:0];
+                    endcase
                     
-                    // 第二行输出
-                    8: data_out_8 <= final_sum[DATA_WIDTH-1:0];
-                    9: data_out_9 <= final_sum[DATA_WIDTH-1:0];
-                    10: data_out_10 <= final_sum[DATA_WIDTH-1:0];
-                    11: data_out_11 <= final_sum[DATA_WIDTH-1:0];
-                    12: data_out_12 <= final_sum[DATA_WIDTH-1:0];
-                    13: data_out_13 <= final_sum[DATA_WIDTH-1:0];
-                    14: data_out_14 <= final_sum[DATA_WIDTH-1:0];
-                    15: data_out_15 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第三行输出
-                    16: data_out_16 <= final_sum[DATA_WIDTH-1:0];
-                    17: data_out_17 <= final_sum[DATA_WIDTH-1:0];
-                    18: data_out_18 <= final_sum[DATA_WIDTH-1:0];
-                    19: data_out_19 <= final_sum[DATA_WIDTH-1:0];
-                    20: data_out_20 <= final_sum[DATA_WIDTH-1:0];
-                    21: data_out_21 <= final_sum[DATA_WIDTH-1:0];
-                    22: data_out_22 <= final_sum[DATA_WIDTH-1:0];
-                    23: data_out_23 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第四行输出
-                    24: data_out_24 <= final_sum[DATA_WIDTH-1:0];
-                    25: data_out_25 <= final_sum[DATA_WIDTH-1:0];
-                    26: data_out_26 <= final_sum[DATA_WIDTH-1:0];
-                    27: data_out_27 <= final_sum[DATA_WIDTH-1:0];
-                    28: data_out_28 <= final_sum[DATA_WIDTH-1:0];
-                    29: data_out_29 <= final_sum[DATA_WIDTH-1:0];
-                    30: data_out_30 <= final_sum[DATA_WIDTH-1:0];
-                    31: data_out_31 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第五行输出
-                    32: data_out_32 <= final_sum[DATA_WIDTH-1:0];
-                    33: data_out_33 <= final_sum[DATA_WIDTH-1:0];
-                    34: data_out_34 <= final_sum[DATA_WIDTH-1:0];
-                    35: data_out_35 <= final_sum[DATA_WIDTH-1:0];
-                    36: data_out_36 <= final_sum[DATA_WIDTH-1:0];
-                    37: data_out_37 <= final_sum[DATA_WIDTH-1:0];
-                    38: data_out_38 <= final_sum[DATA_WIDTH-1:0];
-                    39: data_out_39 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第六行输出
-                    40: data_out_40 <= final_sum[DATA_WIDTH-1:0];
-                    41: data_out_41 <= final_sum[DATA_WIDTH-1:0];
-                    42: data_out_42 <= final_sum[DATA_WIDTH-1:0];
-                    43: data_out_43 <= final_sum[DATA_WIDTH-1:0];
-                    44: data_out_44 <= final_sum[DATA_WIDTH-1:0];
-                    45: data_out_45 <= final_sum[DATA_WIDTH-1:0];
-                    46: data_out_46 <= final_sum[DATA_WIDTH-1:0];
-                    47: data_out_47 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第七行输出
-                    48: data_out_48 <= final_sum[DATA_WIDTH-1:0];
-                    49: data_out_49 <= final_sum[DATA_WIDTH-1:0];
-                    50: data_out_50 <= final_sum[DATA_WIDTH-1:0];
-                    51: data_out_51 <= final_sum[DATA_WIDTH-1:0];
-                    52: data_out_52 <= final_sum[DATA_WIDTH-1:0];
-                    53: data_out_53 <= final_sum[DATA_WIDTH-1:0];
-                    54: data_out_54 <= final_sum[DATA_WIDTH-1:0];
-                    55: data_out_55 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第八行输出
-                    56: data_out_56 <= final_sum[DATA_WIDTH-1:0];
-                    57: data_out_57 <= final_sum[DATA_WIDTH-1:0];
-                    58: data_out_58 <= final_sum[DATA_WIDTH-1:0];
-                    59: data_out_59 <= final_sum[DATA_WIDTH-1:0];
-                    60: data_out_60 <= final_sum[DATA_WIDTH-1:0];
-                    61: data_out_61 <= final_sum[DATA_WIDTH-1:0];
-                    62: data_out_62 <= final_sum[DATA_WIDTH-1:0];
-                    63: data_out_63 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第九行输出
-                    64: data_out_64 <= final_sum[DATA_WIDTH-1:0];
-                    65: data_out_65 <= final_sum[DATA_WIDTH-1:0];
-                    66: data_out_66 <= final_sum[DATA_WIDTH-1:0];
-                    67: data_out_67 <= final_sum[DATA_WIDTH-1:0];
-                    68: data_out_68 <= final_sum[DATA_WIDTH-1:0];
-                    69: data_out_69 <= final_sum[DATA_WIDTH-1:0];
-                    70: data_out_70 <= final_sum[DATA_WIDTH-1:0];
-                    71: data_out_71 <= final_sum[DATA_WIDTH-1:0];
-                    
-                    // 第十行输出
-                    72: data_out_72 <= final_sum[DATA_WIDTH-1:0];
-                    73: data_out_73 <= final_sum[DATA_WIDTH-1:0];
-                    74: data_out_74 <= final_sum[DATA_WIDTH-1:0];
-                    75: data_out_75 <= final_sum[DATA_WIDTH-1:0];
-                    76: data_out_76 <= final_sum[DATA_WIDTH-1:0];
-                    77: data_out_77 <= final_sum[DATA_WIDTH-1:0];
-                    78: data_out_78 <= final_sum[DATA_WIDTH-1:0];
-                    79: data_out_79 <= final_sum[DATA_WIDTH-1:0];
-                endcase
-                
-                // 更新卷积窗口位置
-                if (conv_counter < 79) begin
-                    conv_counter <= conv_counter + 1;
-                    
-                    // 移动窗口：先向右移动，到达最右边后换行
-                    if (col_start_idx < 9) begin
-                        // 还在当前行，向右移动一列
-                        col_start_idx <= col_start_idx + 1;
-                    end else begin
-                        // 移动到下一行的最左边
-                        col_start_idx <= 0;
-                        row_start_idx <= row_start_idx + 1;
-                    end
+                    // 更新卷积窗口位置
+                    if (conv_counter < 79) begin
+                        conv_counter <= conv_counter + 1;
+                        
+                        // 移动窗口：先向右移动，到达最右边后换行
+                        if (col_start_idx < 9) begin
+                            // 还在当前行，向右移动一列
+                            col_start_idx <= col_start_idx + 1;
+                        end else begin
+                            // 移动到下一行的最左边
+                            col_start_idx <= 0;
+                            row_start_idx <= row_start_idx + 1;
+                        end
+                    end 
+                end
+                if (assign_counter < 399) begin 
+                    assign_counter <= assign_counter + 1;
                 end else begin
                     // 完成所有80个输出
+                    assign_counter <= 0;
                     busy <= 0;
                     isCalculated <= 1;
                     conv_counter <= 0;
