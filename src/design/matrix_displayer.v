@@ -5,15 +5,14 @@ module matrix_displayer(
     input wire rst_n,
     
     // 控制信号
-    input wire start,           // 保持名字不变
-    output reg busy,            // 保持名字不变
+    input wire start,
+    output reg busy,
     
     // 矩阵参数输入
     input wire [2:0] matrix_row,
-    input wire [2:0] matrix_col,
+    input wire [2:0] matrix_col, // 必须确保传入真实的列数（例如2）
     
     // 来自 Storage 的 25 个数据
-    //这里必须改为 [8:0] 才能接收 405，名字和顺序严格保持不变
     input wire [8:0] d0,  input wire [8:0] d1,  input wire [8:0] d2,  input wire [8:0] d3,  input wire [8:0] d4,
     input wire [8:0] d5,  input wire [8:0] d6,  input wire [8:0] d7,  input wire [8:0] d8,  input wire [8:0] d9,
     input wire [8:0] d10, input wire [8:0] d11, input wire [8:0] d12, input wire [8:0] d13, input wire [8:0] d14,
@@ -23,18 +22,18 @@ module matrix_displayer(
     // UART 接口 
     input wire       tx_busy,   
     output reg       tx_start,  
-    output reg [7:0] tx_data    // 推测：配套的数据端口名
+    output reg [7:0] tx_data
 );
 
     // 状态定义
     localparam S_IDLE           = 0;
     localparam S_PREPARE_DATA   = 1;
     localparam S_CALC_DIGITS    = 2; 
-    localparam S_SEND_CHAR_1    = 3; 
+    localparam S_SEND_CHAR_1    = 3;
     localparam S_SEND_CHAR_2    = 4; 
-    localparam S_SEND_CHAR_3    = 5; 
+    localparam S_SEND_CHAR_3    = 5;
     localparam S_WAIT_UART      = 6; 
-    localparam S_SEND_SEP       = 7; 
+    localparam S_SEND_SEP       = 7;
     localparam S_CHECK_NEXT     = 8; 
     localparam S_DONE           = 9;
     localparam S_WAIT_RELEASE   = 10;
@@ -43,7 +42,7 @@ module matrix_displayer(
     reg [2:0] r_cnt;
     reg [2:0] c_cnt;
     
-    reg [8:0] current_data; // 改为 9 位
+    reg [8:0] current_data;
     
     // 拆分数字用的寄存器
     reg [3:0] digit_hundreds;
@@ -55,15 +54,30 @@ module matrix_displayer(
     localparam ASCII_LF    = 8'd10; 
 
     // 数据选择 logic
-    reg [4:0] idx; 
+    reg [4:0] idx;
+
     always @(*) begin
-        idx = (r_cnt * 5) + c_cnt; 
+        // ================= 修改重点 =================
+        // 原代码：idx = (r_cnt * 5) + c_cnt; 
+        // 这种写法假设数据总是稀疏地存在 5x5 的格子里（如第一行在0-4，第二行在5-9）。
+        // 但如果你的运算结果是紧凑存储的（例如2x2矩阵存在 d0, d1, d2, d3），则需要改为：
+        
+        idx = (r_cnt * matrix_col) + c_cnt; 
+        
+        // 注意：这要求 top 模块传入的 matrix_col 必须是当前矩阵的真实列数。
+        // ===========================================
+
         case(idx)
-            5'd0:  current_data = d0;  5'd1:  current_data = d1;  5'd2:  current_data = d2;  5'd3:  current_data = d3;  5'd4:  current_data = d4;
-            5'd5:  current_data = d5;  5'd6:  current_data = d6;  5'd7:  current_data = d7;  5'd8:  current_data = d8;  5'd9:  current_data = d9;
-            5'd10: current_data = d10; 5'd11: current_data = d11; 5'd12: current_data = d12; 5'd13: current_data = d13; 5'd14: current_data = d14;
-            5'd15: current_data = d15; 5'd16: current_data = d16; 5'd17: current_data = d17; 5'd18: current_data = d18; 5'd19: current_data = d19;
-            5'd20: current_data = d20; 5'd21: current_data = d21; 5'd22: current_data = d22; 5'd23: current_data = d23; 5'd24: current_data = d24;
+            5'd0:  current_data = d0;
+            5'd1:  current_data = d1;  5'd2:  current_data = d2;  5'd3:  current_data = d3;  5'd4:  current_data = d4;
+            5'd5:  current_data = d5;  5'd6:  current_data = d6;  5'd7:  current_data = d7;  5'd8:  current_data = d8;
+            5'd9:  current_data = d9;
+            5'd10: current_data = d10; 5'd11: current_data = d11; 5'd12: current_data = d12;
+            5'd13: current_data = d13; 5'd14: current_data = d14;
+            5'd15: current_data = d15; 5'd16: current_data = d16; 5'd17: current_data = d17;
+            5'd18: current_data = d18; 5'd19: current_data = d19;
+            5'd20: current_data = d20; 5'd21: current_data = d21; 5'd22: current_data = d22;
+            5'd23: current_data = d23; 5'd24: current_data = d24;
             default: current_data = 9'd0;
         endcase
     end
@@ -76,6 +90,11 @@ module matrix_displayer(
             tx_data <= 0;
             r_cnt <= 0;
             c_cnt <= 0;
+            // 初始化其他寄存器
+            digit_hundreds <= 0;
+            digit_tens <= 0;
+            digit_units <= 0;
+            next_state_after_wait <= S_IDLE;
         end else begin
             case (state)
                 S_IDLE: begin
@@ -89,6 +108,7 @@ module matrix_displayer(
                 end
 
                 S_PREPARE_DATA: begin
+                    // 等待一个周期，让组合逻辑 idx 和 current_data 稳定
                     state <= S_CALC_DIGITS;
                 end
 
@@ -100,15 +120,13 @@ module matrix_displayer(
                     state <= S_SEND_CHAR_1;
                 end
 
-                // --- 左对齐逻辑 ---
-                
                 // 1. 发第一个字符
                 S_SEND_CHAR_1: begin
                     if (!tx_busy) begin
                         tx_start <= 1;
-                        if (current_data >= 100)      tx_data <= digit_hundreds + ASCII_0; // 405 -> '4'
-                        else if (current_data >= 10)  tx_data <= digit_tens + ASCII_0;     // 45  -> '4'
-                        else                          tx_data <= digit_units + ASCII_0;    // 5   -> '5'
+                        if (current_data >= 100)      tx_data <= digit_hundreds + ASCII_0;
+                        else if (current_data >= 10)  tx_data <= digit_tens + ASCII_0;
+                        else                          tx_data <= digit_units + ASCII_0;
                         
                         next_state_after_wait <= S_SEND_CHAR_2;
                         state <= S_WAIT_UART;
@@ -119,9 +137,9 @@ module matrix_displayer(
                 S_SEND_CHAR_2: begin
                     if (!tx_busy) begin 
                         tx_start <= 1;
-                        if (current_data >= 100)      tx_data <= digit_tens + ASCII_0;     // 405 -> '0'
-                        else if (current_data >= 10)  tx_data <= digit_units + ASCII_0;    // 45  -> '5'
-                        else                          tx_data <= ASCII_SPACE;              // 5   -> ' ' (补空)
+                        if (current_data >= 100)      tx_data <= digit_tens + ASCII_0;
+                        else if (current_data >= 10)  tx_data <= digit_units + ASCII_0;
+                        else                          tx_data <= ASCII_SPACE;
                         
                         next_state_after_wait <= S_SEND_CHAR_3;
                         state <= S_WAIT_UART;
@@ -132,8 +150,8 @@ module matrix_displayer(
                 S_SEND_CHAR_3: begin
                     if (!tx_busy) begin
                         tx_start <= 1;
-                        if (current_data >= 100)      tx_data <= digit_units + ASCII_0;    // 405 -> '5'
-                        else                          tx_data <= ASCII_SPACE;              // 其他补空
+                        if (current_data >= 100)      tx_data <= digit_units + ASCII_0;
+                        else                          tx_data <= ASCII_SPACE;
                         
                         next_state_after_wait <= S_SEND_SEP;
                         state <= S_WAIT_UART;
@@ -142,9 +160,6 @@ module matrix_displayer(
 
                 S_WAIT_UART: begin
                     tx_start <= 0;
-                    // 简单握手：只要忙了或者已经不忙了(脉冲发完)就继续
-                    // 这里为了稳妥，配合你的 top 逻辑，等待 busy 过去
-                    // 假设 UART 模块接收到 start 后会立刻拉高 busy
                     if (tx_busy) begin
                         // wait
                     end else begin
@@ -185,6 +200,7 @@ module matrix_displayer(
                 end
 
                 S_WAIT_RELEASE: begin
+                    // 等待 top 模块撤销 start 信号，防止重复触发
                     if (start == 0) state <= S_IDLE;
                 end
                 
