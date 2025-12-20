@@ -617,7 +617,8 @@ matrix_search_displayer #(
 
 // 缓存
 reg [7:0] rx_buf;
-
+reg [4:0] input_cnt;    // 当前录入到第几个数据
+reg [4:0] input_total;  // 总共需要录入多少个数据 (Row * Col)
 // 状�?�机
 integer i;
 always @(posedge clk or negedge rst_n) begin
@@ -658,66 +659,79 @@ always @(posedge clk or negedge rst_n) begin
                     endcase
                 end
             end
-            
-            9'd100: begin
-                // uart传入r
-                rx_buf <= rx_data;
-                wr_row <= rx_data-"0";
-
-                if (btn_confirm_pulse) begin
-                    state <= 9'd110;
-                end
-                if (btn_return_pulse) begin
-                    state <= 9'd000;
-                end
-            end
-            
-            9'd110: begin
-                // uart传入c
-                led <= 14'b10_0000_0000_0000;
-                wr_col <= rx_data-"0";
-
-                if (btn_confirm_pulse) begin
-                    state <= 9'd120;
-                end
-                if (btn_return_pulse) begin
-                    state <= 9'd000;
-                end
-            end
-            
-            9'd120: begin
-                // uart传入矩阵，存�?
-                
-                //1. 监测 RX Handler 的完成信�?
-                if (rx_handler_done) begin
-                    // 锁存地址：将 Handler 解析出的�?/列存�? top4 的写地址寄存�?
-                    wr_row <= rx_handler_row;
-                    wr_col <= rx_handler_col;
-                    
-                    // 锁存数据：将 Handler 输出�? 25 个数据锁存到 top4 �? buffer
-                    for (i  = 0; i < 25; i = i + 1) begin
-                        storage_input_data[i] <= rx_handler_data[i];
+            10'd100: begin
+                // 只要串口收到数据
+                if (rx_done) begin
+                    // 过滤：只接受 1~5 的数字
+                    if (rx_data >= "1" && rx_data <= "5") begin
+                        wr_row <= rx_data - "0"; // 存入行
+                        state <= 10'd110;        // 【自动跳转】去输列
                     end
-                    
-                    // 设置标志位，在下�?个时钟周期触发写使能 (确保数据已稳�?)
-                    write_flag <= 1'b1;
-                end// 2. 执行写入操作 (�? write_flag 触发)
-
-                if (write_flag) begin
-                    wr_en_reg <= 1'b1; 
-                    write_flag <= 1'b0; 
-                end else begin
-                    wr_en_reg <= 1'b0; // 其他时�?�保持写无效
                 end
+                
+                // 保留返回键
+                if (btn_return_pulse) state <= 10'd000; 
+            end
 
-                // --- 返回逻辑 ---
-                if (btn_confirm_pulse) begin
-                    state <= 9'd000;
-                    // 离开状�?�前复位关键信号
-                    wr_en_reg <= 1'b0;
-                    write_flag <= 1'b0;
+            // --- 自动接收列数 (Col) ---
+            10'd110: begin
+                if (rx_done) begin
+                    // 过滤：只接受 1~5 的数字
+                    if (rx_data >= "1" && rx_data <= "5") begin
+                        wr_col <= rx_data - "0"; // 存入列
+                        state <= 10'd120;        // 【自动跳转】去计算
+                    end
                 end
-            
+                
+                if (btn_return_pulse) state <= 10'd100;
+            end
+
+            // --- 计算矩阵总元素个数 & 初始化 ---
+            10'd120: begin
+                input_total <= wr_row * wr_col; // 计算 R * C
+                input_cnt <= 0;                 // 计数器清零
+                state <= 10'd130;               // 马上进入数据接收
+            end
+
+            // --- 步骤 3: 自动接收矩阵元素 (Data) ---
+            10'd130: begin
+                if (rx_done) begin
+                    // 过滤：只接受 0~9 的数字 (忽略空格、换行、逗号)
+                    if (rx_data >= "0" && rx_data <= "9") begin
+                        
+                        // 1. 存入当前数据
+                        storage_input_data[input_cnt] <= rx_data - "0";
+                        
+                        // 2. 检查是否输完了
+                        if (input_cnt + 1 >= input_total) begin
+                            state <= 10'd140; // 【自动跳转】去写入
+                        end else begin
+                            input_cnt <= input_cnt + 1; // 指针移向下一个
+                        end
+                    end
+                end
+                
+                if (btn_return_pulse) state <= 10'd100;
+            end
+
+            // --- 步骤 4: 触发写入 (Pulse wr_en) ---
+            10'd140: begin
+                wr_en_reg <= 1'b1; // 拉高写使能，存入 Storage
+                state <= 10'd141;
+            end
+
+            // --- 步骤 5: 释放与完成 ---
+            10'd141: begin
+                wr_en_reg <= 1'b0; // 写入完成，拉低
+                
+                // 这里回到 100，准备接收下一个矩阵，或者等待切模式
+                state <= 10'd150; 
+            end
+
+            10'd150: begin
+
+                // 已完成，可以返回
+                if (btn_return_pulse || btn_confirm_pulse) state <= 10'd000; 
             end
             
             9'd200: begin
