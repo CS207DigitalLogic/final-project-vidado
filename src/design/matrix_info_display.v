@@ -6,7 +6,7 @@ module matrix_info_display#(
     input  wire                 rst_n,
     
     // 控制接口
-    input  wire                 start_req,      // 开始显示脉冲 (pulse)
+    input  wire                 start_req,      // 开始显示脉冲
     output reg                  busy,           // 模块忙信号
     
     // UART 发送接口
@@ -17,7 +17,7 @@ module matrix_info_display#(
     // Multi_matrix_storage 查询接口
     output reg [2:0]            qry_row,        // 查询行
     output reg [2:0]            qry_col,        // 查询列
-    input  wire [CNT_WIDTH-1:0] qry_cnt,        // 该规格矩阵的数量 (来自 storage 的 scale_matrix_cnt)
+    input  wire [CNT_WIDTH-1:0] qry_cnt,        // 该规格矩阵的数量
 
     // ==========================================
     // [新增] 随机选择输出接口
@@ -31,7 +31,8 @@ module matrix_info_display#(
     localparam S_IDLE           = 0;
     localparam S_SCAN_INIT      = 1;
     localparam S_SCAN_SET_ADDR  = 2;
-    localparam S_SCAN_WAIT_MEM  = 3; // 等待 storage 读数据
+    localparam S_SCAN_WAIT_1    = 3; // [修改] 等待周期1
+    localparam S_SCAN_WAIT_2    = 15; // [新增] 等待周期2 (确保时序绝对稳健)
     localparam S_SCAN_READ      = 4; // 读取并判断
     localparam S_SEND_TOTAL_HI  = 5;
     localparam S_SEND_TOTAL_LO  = 6;
@@ -42,7 +43,7 @@ module matrix_info_display#(
     localparam S_SEND_NL        = 11;
     localparam S_LIST_CHECK     = 12; // 检查循环
     localparam S_DONE           = 13;
-    localparam S_WAIT_RELEASE   = 14; // [新增] 等待启动信号释放
+    localparam S_WAIT_RELEASE   = 14; 
     
     // UART 发送子状态
     localparam S_TX_START       = 20;
@@ -56,19 +57,19 @@ module matrix_info_display#(
     // ==========================================
     // [新增] 随机数逻辑变量
     // ==========================================
-    wire [2:0] rng_out;          // 随机数生成器实时输出
-    reg  [2:0] target_rand_val;  // 锁存的随机目标值 (1-5)
-    reg  [2:0] rc;               // 遍历计数器 (Random Count)
+    wire [2:0] rng_out;          
+    reg  [2:0] target_rand_val;  
+    reg  [2:0] rc;               // [修改] 稍微加大位宽防止溢出，虽然5位够用
 
-    // [新增] 实例化随机数生成器 (1-5)
+    // 随机数生成器 (保持不变)
     random_num_generator #(
-        .WIDTH(3) // 3位足够表示 1-5
+        .WIDTH(3) 
     ) rng_inst (
         .clk        (clk),
         .rst_n      (rst_n),
-        .en         (1'b1),         // 使能一直开，保证随机性
-        .min_val    (3'd1),         // 最小值 1
-        .max_val    (3'd5),         // 最大值 5
+        .en         (1'b1),         
+        .min_val    (3'd1),         
+        .max_val    (3'd5),         
         .random_num (rng_out)
     );
 
@@ -82,7 +83,6 @@ module matrix_info_display#(
             qry_col <= 1;
             return_state <= S_IDLE;
             
-            // [新增] 复位随机输出
             random_r <= 0;
             random_c <= 0;
             random_cnt <= 0;
@@ -94,58 +94,58 @@ module matrix_info_display#(
                     busy <= 0;
                     if (start_req) begin
                         busy <= 1;
+                        qry_row <= 1;
+                        qry_col <= 1;
                         state <= S_SCAN_INIT;
                         
-                        // ===========================
-                        // [新增] 遍历前赋值 1-5 随机数
-                        // ===========================
-                        target_rand_val <= rng_out; // 锁存当前的随机数
-                        rc <= 1;                    // 计数器初始化为 1
+                        target_rand_val <= rng_out; 
+                        rc <= 1;                    
                     end
                 end
-                // 第一阶段：扫描所有规格并缓存
+
                 S_SCAN_INIT: begin
                     qry_row <= 1;
                     qry_col <= 1;
                     state <= S_SCAN_SET_ADDR;
                 end
 
+                // 设置地址状态
                 S_SCAN_SET_ADDR: begin
-                    state <= S_SCAN_WAIT_MEM;
+                    // 地址在上一状态或此状态已经稳定输出
+                    state <= S_SCAN_WAIT_1;
                 end
 
-                S_SCAN_WAIT_MEM: begin
+                // [重要修改] 增加两个等待周期，确保 storage 读取回来的数据绝对稳定
+                S_SCAN_WAIT_1: begin
+                    state <= S_SCAN_WAIT_2;
+                end
+                
+                S_SCAN_WAIT_2: begin
                     state <= S_SCAN_READ;
                 end
 
                 S_SCAN_READ: begin
-                    // qry_cnt 是当前规格 (qry_row x qry_col) 的矩阵数量
-                    //if (qry_cnt > 0) begin
-                        
-                        // ===========================
-                        // [新增] 随机选取核心逻辑
-                        // ===========================
-                        // 判断 randomcount 是否等于随机数
-                        if (rc == target_rand_val) begin
-                            // 若是，则将输出设为当前的行列和数量
-                            random_r <= qry_row;
-                            random_c <= qry_col;
-                            random_cnt <= qry_cnt;
-                        end 
-                        
-                        // 无论是否命中，rc 都 +1 (对应 "若为否 则rc+1")
-                        rc <= rc + 1;
-                        
-                
-                        // 准备发送行号
-                        uart_tx_data <= qry_row + "0";
-                        return_state <= S_SEND_X; // 下一步去发 'x'
-                        state <= S_TX_START;      // 跳转到发送子程序
-                    //end else begin
-                        // 数量为0，跳过
-                    //    state <= S_LIST_CHECK;
-                    //end
+                    // 此时 qry_cnt 应该是稳定的
+                    if (qry_cnt > 0) begin
+                    // 随机数判断逻辑
+                    if (rc == target_rand_val) begin
+                        random_r <= qry_row;
+                        random_c <= qry_col;
+                        random_cnt <= qry_cnt;
+                    end 
+                    rc <= rc + 1;
+                    
+                    // 准备通过 UART 发送 "Row" 信息
+                    uart_tx_data <= qry_row + "0";
+                    return_state <= S_SEND_X; 
+                    state <= S_TX_START;      
+                    
+                end else begin
+                        // 如果数量为0，直接跳过所有发送步骤，去检查下一个
+                        state <= S_LIST_CHECK;
+                    end
                 end
+
                 S_SEND_X: begin
                      uart_tx_data <= "x";
                      return_state <= S_SEND_COL;
@@ -159,30 +159,28 @@ module matrix_info_display#(
                 end
 
                 S_SEND_EQ: begin
-                     uart_tx_data <= ":"; // 或者 "="
+                     uart_tx_data <= ":"; 
                      return_state <= S_SEND_TOTAL_HI; 
                      state <= S_TX_START;
                 end
-                // 第二阶段：发送总数
-               // --- 发送矩阵数量（十位或个位） ---
+
+                // 发送数量高位
                 S_SEND_TOTAL_HI: begin
                     if (qry_cnt > 9) begin
-                        // 如果大于9，先发十位
                         uart_tx_data <= (qry_cnt / 10) + "0";
-                        return_state <= S_SEND_TOTAL_LO; // 下一步去发个位
+                        return_state <= S_SEND_TOTAL_LO; 
                     end else begin
-                        // 如果小于等于9，直接发个位
                         uart_tx_data <= qry_cnt + "0";
-                        return_state <= S_SEND_NL;       // 发完直接换行
+                        return_state <= S_SEND_NL;       
                     end
-                    state <= S_TX_START; // 触发发送
+                    state <= S_TX_START; 
                 end
 
-                // --- 发送矩阵数量（个位，仅在 >9 时进入） ---
+                // 发送数量低位
                 S_SEND_TOTAL_LO: begin
-                    uart_tx_data <= (qry_cnt % 10) + "0"; // 取余数发个位
-                    return_state <= S_SEND_NL;            // 发完换行
-                    state <= S_TX_START;                  // 触发发送
+                    uart_tx_data <= (qry_cnt % 10) + "0"; 
+                    return_state <= S_SEND_NL;            
+                    state <= S_TX_START;                  
                 end
 
                 S_SEND_NL: begin
@@ -192,6 +190,7 @@ module matrix_info_display#(
                 end
 
                 S_LIST_CHECK: begin
+                    // 遍历逻辑：先列后行
                     if (qry_col < MAX_SIZE) begin
                         qry_col <= qry_col + 1;
                         state <= S_SCAN_SET_ADDR;
@@ -206,28 +205,21 @@ module matrix_info_display#(
                 
                 S_DONE: begin
                     busy <= 0;
-                    // [修改] 任务结束时，检查 start_req 是否依然为高
                     if (start_req) begin
-                        // 如果主机依然拉高启动信号，我们就去等待它变低
                         state <= S_WAIT_RELEASE;
                     end else begin
-                        // 如果已经变低了，直接回 IDLE
                         state <= S_IDLE;
                     end
                 end
                 
-                // [新增] 等待释放状态
                 S_WAIT_RELEASE: begin
                     busy <= 0;
-                    // 只有当 start_req 变回 0 后，才允许回到 IDLE 接受下一次触发
                     if (!start_req) begin
                         state <= S_IDLE;
                     end
                 end
 
-                // ===========================
-                // UART 发送子程序 (保持原逻辑)
-                // ===========================
+                // UART 发送子程序
                 S_TX_START: begin
                     uart_tx_start <= 1;
                     state <= S_TX_WAIT_BUSY; 

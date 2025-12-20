@@ -1,86 +1,86 @@
 module multi_matrix_storage #(
-    parameter DATA_WIDTH        = 8,        // Êý¾ÝÎ»¿í
-    parameter MAX_SIZE          = 5,        // µ¥¸ö¾ØÕó×î´ó¹æÄ££¨1~5£©
-    parameter MATRIX_NUM        = 8,        // È«¾Ö×î´ó¾ØÕóÊýÁ¿
-    parameter MAX_MATRIX_PER_SIZE = 4       // Ã¿¸ö¹æÄ£×î¶à´æ´¢¾ØÕóÊý
+    parameter DATA_WIDTH        = 8,        // ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½
+    parameter MAX_SIZE          = 5,        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½1~5ï¿½ï¿½
+    parameter MATRIX_NUM        = 8,        // È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    parameter MAX_MATRIX_PER_SIZE = 4       // Ã¿ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 )(
-    input wire                     rst_n,          // µÍÓÐÐ§¸´Î»£¨½öÓÃÓÚ³õÊ¼»¯£©
+    input wire                     rst_n,          // ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú³ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
     // ---------------------------
-    // ×éºÏÂß¼­Ð´Èë½Ó¿Ú
+    // ï¿½ï¿½ï¿½ï¿½ß¼ï¿½Ð´ï¿½ï¿½Ó¿ï¿½
     // ---------------------------
-    input wire                     wr_en,          // Ð´Ê¹ÄÜ£¨1=Ö´ÐÐÐ´Èë£¬×éºÏÂß¼­ÊµÊ±ÏìÓ¦£©
-    input wire [MATRIX_IDX_W-1:0]  target_idx,     // Ð´ÈëÄ¿±ê£ºÈ«¾Ö¾ØÕóË÷Òý£¨0~MATRIX_NUM-1£©
-    input wire [2:0]               write_row,      // Ð´Èë¾ØÕóµÄÐÐÊý£¨1~MAX_SIZE£©
-    input wire [2:0]               write_col,      // Ð´Èë¾ØÕóµÄÁÐÊý£¨1~MAX_SIZE£©
-    input wire [DATA_WIDTH-1:0]    data_in_0,      // Ð´ÈëÊý¾Ý0£¨µØÖ·0£©
-    input wire [DATA_WIDTH-1:0]    data_in_1,      // Ð´ÈëÊý¾Ý1£¨µØÖ·1£©
-    input wire [DATA_WIDTH-1:0]    data_in_2,      // Ð´ÈëÊý¾Ý2£¨µØÖ·2£©
-    input wire [DATA_WIDTH-1:0]    data_in_3,      // Ð´ÈëÊý¾Ý3£¨µØÖ·3£©
-    input wire [DATA_WIDTH-1:0]    data_in_4,      // Ð´ÈëÊý¾Ý4£¨µØÖ·4£©
-    input wire [DATA_WIDTH-1:0]    data_in_5,      // Ð´ÈëÊý¾Ý5£¨µØÖ·5£©
-    input wire [DATA_WIDTH-1:0]    data_in_6,      // Ð´ÈëÊý¾Ý6£¨µØÖ·6£©
-    input wire [DATA_WIDTH-1:0]    data_in_7,      // Ð´ÈëÊý¾Ý7£¨µØÖ·7£©
-    input wire [DATA_WIDTH-1:0]    data_in_8,      // Ð´ÈëÊý¾Ý8£¨µØÖ·8£©
-    input wire [DATA_WIDTH-1:0]    data_in_9,      // Ð´ÈëÊý¾Ý9£¨µØÖ·9£©
-    input wire [DATA_WIDTH-1:0]    data_in_10,     // Ð´ÈëÊý¾Ý10£¨µØÖ·10£©
-    input wire [DATA_WIDTH-1:0]    data_in_11,     // Ð´ÈëÊý¾Ý11£¨µØÖ·11£©
-    input wire [DATA_WIDTH-1:0]    data_in_12,     // Ð´ÈëÊý¾Ý12£¨µØÖ·12£©
-    input wire [DATA_WIDTH-1:0]    data_in_13,     // Ð´ÈëÊý¾Ý13£¨µØÖ·13£©
-    input wire [DATA_WIDTH-1:0]    data_in_14,     // Ð´ÈëÊý¾Ý14£¨µØÖ·14£©
-    input wire [DATA_WIDTH-1:0]    data_in_15,     // Ð´ÈëÊý¾Ý15£¨µØÖ·15£©
-    input wire [DATA_WIDTH-1:0]    data_in_16,     // Ð´ÈëÊý¾Ý16£¨µØÖ·16£©
-    input wire [DATA_WIDTH-1:0]    data_in_17,     // Ð´ÈëÊý¾Ý17£¨µØÖ·17£©
-    input wire [DATA_WIDTH-1:0]    data_in_18,     // Ð´ÈëÊý¾Ý18£¨µØÖ·18£©
-    input wire [DATA_WIDTH-1:0]    data_in_19,     // Ð´ÈëÊý¾Ý19£¨µØÖ·19£©
-    input wire [DATA_WIDTH-1:0]    data_in_20,     // Ð´ÈëÊý¾Ý20£¨µØÖ·20£©
-    input wire [DATA_WIDTH-1:0]    data_in_21,     // Ð´ÈëÊý¾Ý21£¨µØÖ·21£©
-    input wire [DATA_WIDTH-1:0]    data_in_22,     // Ð´ÈëÊý¾Ý22£¨µØÖ·22£©
-    input wire [DATA_WIDTH-1:0]    data_in_23,     // Ð´ÈëÊý¾Ý23£¨µØÖ·23£©
-    input wire [DATA_WIDTH-1:0]    data_in_24,     // Ð´ÈëÊý¾Ý24£¨µØÖ·24£©
+    input wire                     wr_en,          // Ð´Ê¹ï¿½Ü£ï¿½1=Ö´ï¿½ï¿½Ð´ï¿½ë£¬ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ÊµÊ±ï¿½ï¿½Ó¦ï¿½ï¿½
+    input wire [MATRIX_IDX_W-1:0]  target_idx,     // Ð´ï¿½ï¿½Ä¿ï¿½ê£ºÈ«ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0~MATRIX_NUM-1ï¿½ï¿½
+    input wire [2:0]               write_row,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1~MAX_SIZEï¿½ï¿½
+    input wire [2:0]               write_col,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1~MAX_SIZEï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_0,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½Ö·0ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_1,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½Ö·1ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_2,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½Ö·2ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_3,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½Ö·3ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_4,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½4ï¿½ï¿½ï¿½ï¿½Ö·4ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_5,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½5ï¿½ï¿½ï¿½ï¿½Ö·5ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_6,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½6ï¿½ï¿½ï¿½ï¿½Ö·6ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_7,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½7ï¿½ï¿½ï¿½ï¿½Ö·7ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_8,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½8ï¿½ï¿½ï¿½ï¿½Ö·8ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_9,      // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½9ï¿½ï¿½ï¿½ï¿½Ö·9ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_10,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½Ö·10ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_11,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½11ï¿½ï¿½ï¿½ï¿½Ö·11ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_12,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½12ï¿½ï¿½ï¿½ï¿½Ö·12ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_13,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½13ï¿½ï¿½ï¿½ï¿½Ö·13ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_14,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½14ï¿½ï¿½ï¿½ï¿½Ö·14ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_15,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½15ï¿½ï¿½ï¿½ï¿½Ö·15ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_16,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½16ï¿½ï¿½ï¿½ï¿½Ö·16ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_17,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½17ï¿½ï¿½ï¿½ï¿½Ö·17ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_18,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½18ï¿½ï¿½ï¿½ï¿½Ö·18ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_19,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½19ï¿½ï¿½ï¿½ï¿½Ö·19ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_20,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½20ï¿½ï¿½ï¿½ï¿½Ö·20ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_21,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½21ï¿½ï¿½ï¿½ï¿½Ö·21ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_22,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½22ï¿½ï¿½ï¿½ï¿½Ö·22ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_23,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½23ï¿½ï¿½ï¿½ï¿½Ö·23ï¿½ï¿½
+    input wire [DATA_WIDTH-1:0]    data_in_24,     // Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½24ï¿½ï¿½ï¿½ï¿½Ö·24ï¿½ï¿½
     // ---------------------------
-    // ºËÐÄ²éÑ¯ÊäÈë£¨°´¹æÄ£+ÐòºÅÑ¡Ôñ¾ØÕó£¬ÓëÖ®Ç°Ò»ÖÂ£©
+    // ï¿½ï¿½ï¿½Ä²ï¿½Ñ¯ï¿½ï¿½ï¿½ë£¨ï¿½ï¿½ï¿½ï¿½Ä£+ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°Ò»ï¿½Â£ï¿½
     // ---------------------------
-    input wire [2:0]               req_scale_row,  // ÒªÇóµÄ¾ØÕó¹æÄ££¨ÐÐ£º1~MAX_SIZE£©
-    input wire [2:0]               req_scale_col,  // ÒªÇóµÄ¾ØÕó¹æÄ££¨ÁÐ£º1~MAX_SIZE£©
-    input wire [SEL_IDX_W-1:0]     req_idx,        // ÒªÇóµÄÐòºÅ£¨0~MAX_MATRIX_PER_SIZE-1£©
+    input wire [2:0]               req_scale_row,  // Òªï¿½ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½Ð£ï¿½1~MAX_SIZEï¿½ï¿½
+    input wire [2:0]               req_scale_col,  // Òªï¿½ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½Ð£ï¿½1~MAX_SIZEï¿½ï¿½
+    input wire [SEL_IDX_W-1:0]     req_idx,        // Òªï¿½ï¿½ï¿½ï¿½ï¿½Å£ï¿½0~MAX_MATRIX_PER_SIZE-1ï¿½ï¿½
     // ---------------------------
-    // Êä³ö½Ó¿Ú£¨ÓëÖ®Ç°Ò»ÖÂ£¬ÎÞ±ä»¯£©
+    // ï¿½ï¿½ï¿½ï¿½Ó¿Ú£ï¿½ï¿½ï¿½Ö®Ç°Ò»ï¿½Â£ï¿½ï¿½Þ±ä»¯ï¿½ï¿½
     // ---------------------------
-    output reg [SEL_IDX_W-1:0]     scale_matrix_cnt, // Ä¿±ê¹æÄ£µÄ¾ØÕó×ÜÊý
-    output reg [DATA_WIDTH-1:0]    matrix_data_0,  // ¾ØÕóÔªËØ0£¨µØÖ·0£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_1,  // ¾ØÕóÔªËØ1£¨µØÖ·1£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_2,  // ¾ØÕóÔªËØ2£¨µØÖ·2£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_3,  // ¾ØÕóÔªËØ3£¨µØÖ·3£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_4,  // ¾ØÕóÔªËØ4£¨µØÖ·4£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_5,  // ¾ØÕóÔªËØ5£¨µØÖ·5£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_6,  // ¾ØÕóÔªËØ6£¨µØÖ·6£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_7,  // ¾ØÕóÔªËØ7£¨µØÖ·7£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_8,  // ¾ØÕóÔªËØ8£¨µØÖ·8£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_9,  // ¾ØÕóÔªËØ9£¨µØÖ·9£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_10, // ¾ØÕóÔªËØ10£¨µØÖ·10£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_11, // ¾ØÕóÔªËØ11£¨µØÖ·11£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_12, // ¾ØÕóÔªËØ12£¨µØÖ·12£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_13, // ¾ØÕóÔªËØ13£¨µØÖ·13£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_14, // ¾ØÕóÔªËØ14£¨µØÖ·14£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_15, // ¾ØÕóÔªËØ15£¨µØÖ·15£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_16, // ¾ØÕóÔªËØ16£¨µØÖ·16£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_17, // ¾ØÕóÔªËØ17£¨µØÖ·17£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_18, // ¾ØÕóÔªËØ18£¨µØÖ·18£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_19, // ¾ØÕóÔªËØ19£¨µØÖ·19£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_20, // ¾ØÕóÔªËØ20£¨µØÖ·20£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_21, // ¾ØÕóÔªËØ21£¨µØÖ·21£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_22, // ¾ØÕóÔªËØ22£¨µØÖ·22£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_23, // ¾ØÕóÔªËØ23£¨µØÖ·23£©
-    output reg [DATA_WIDTH-1:0]    matrix_data_24, // ¾ØÕóÔªËØ24£¨µØÖ·24£©
-    output reg [2:0]               matrix_row,     // Êä³ö¾ØÕóµÄÊµ¼ÊÐÐÊý
-    output reg [2:0]               matrix_col,     // Êä³ö¾ØÕóµÄÊµ¼ÊÁÐÊý
-    output reg                     matrix_valid    // ¾ØÕóÓÐÐ§±ê¼Ç£¨1=ÐòºÅÓÐÐ§£©
+    output reg [SEL_IDX_W-1:0]     scale_matrix_cnt, // Ä¿ï¿½ï¿½ï¿½Ä£ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_0,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½0ï¿½ï¿½ï¿½ï¿½Ö·0ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_1,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½1ï¿½ï¿½ï¿½ï¿½Ö·1ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_2,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½2ï¿½ï¿½ï¿½ï¿½Ö·2ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_3,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½3ï¿½ï¿½ï¿½ï¿½Ö·3ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_4,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½4ï¿½ï¿½ï¿½ï¿½Ö·4ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_5,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½5ï¿½ï¿½ï¿½ï¿½Ö·5ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_6,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½6ï¿½ï¿½ï¿½ï¿½Ö·6ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_7,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½7ï¿½ï¿½ï¿½ï¿½Ö·7ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_8,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½8ï¿½ï¿½ï¿½ï¿½Ö·8ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_9,  // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½9ï¿½ï¿½ï¿½ï¿½Ö·9ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_10, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½10ï¿½ï¿½ï¿½ï¿½Ö·10ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_11, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½11ï¿½ï¿½ï¿½ï¿½Ö·11ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_12, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½12ï¿½ï¿½ï¿½ï¿½Ö·12ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_13, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½13ï¿½ï¿½ï¿½ï¿½Ö·13ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_14, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½14ï¿½ï¿½ï¿½ï¿½Ö·14ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_15, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½15ï¿½ï¿½ï¿½ï¿½Ö·15ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_16, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½16ï¿½ï¿½ï¿½ï¿½Ö·16ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_17, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½17ï¿½ï¿½ï¿½ï¿½Ö·17ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_18, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½18ï¿½ï¿½ï¿½ï¿½Ö·18ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_19, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½19ï¿½ï¿½ï¿½ï¿½Ö·19ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_20, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½20ï¿½ï¿½ï¿½ï¿½Ö·20ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_21, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½21ï¿½ï¿½ï¿½ï¿½Ö·21ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_22, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½22ï¿½ï¿½ï¿½ï¿½Ö·22ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_23, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½23ï¿½ï¿½ï¿½ï¿½Ö·23ï¿½ï¿½
+    output reg [DATA_WIDTH-1:0]    matrix_data_24, // ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½24ï¿½ï¿½ï¿½ï¿½Ö·24ï¿½ï¿½
+    output reg [2:0]               matrix_row,     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    output reg [2:0]               matrix_col,     // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    output reg                     matrix_valid    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½Ç£ï¿½1=ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½
 );
 
 // ---------------------------
-// ¾Ö²¿²ÎÊý£¨ÓëÔ­Âß¼­Ò»ÖÂ£¬ÎÞ±ä»¯£©
+// ï¿½Ö²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ß¼ï¿½Ò»ï¿½Â£ï¿½ï¿½Þ±ä»¯ï¿½ï¿½
 // ---------------------------
-localparam MEM_DEPTH_PER_MATRIX = MAX_SIZE * MAX_SIZE;  // µ¥¸ö¾ØÕó´æ´¢Éî¶È£¨25£©
+localparam MEM_DEPTH_PER_MATRIX = MAX_SIZE * MAX_SIZE;  // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ´¢ï¿½ï¿½È£ï¿½25ï¿½ï¿½
 localparam MATRIX_IDX_W = (MATRIX_NUM <= 1)  ? 1 :
                          (MATRIX_NUM <= 2)  ? 2 :
                          (MATRIX_NUM <= 4)  ? 3 :
@@ -88,57 +88,56 @@ localparam MATRIX_IDX_W = (MATRIX_NUM <= 1)  ? 1 :
                          (MATRIX_NUM <= 16) ? 4 :
                          (MATRIX_NUM <= 32) ? 5 :
                          6;
-localparam SEL_IDX_W = (MAX_MATRIX_PER_SIZE <= 1)  ? 1 :
-                      (MAX_MATRIX_PER_SIZE <= 2)  ? 2 :
-                      (MAX_MATRIX_PER_SIZE <= 4)  ? 2 :
-                      (MAX_MATRIX_PER_SIZE <= 8)  ? 3 :
-                      (MAX_MATRIX_PER_SIZE <= 16) ? 4 :
-                      5;
+localparam SEL_IDX_W = (MAX_MATRIX_PER_SIZE <= 1) ? 1 :
+                       (MAX_MATRIX_PER_SIZE <= 3) ? 2 : // 3ä¸ªä»¥ä¸‹ç”¨2ä½
+                       (MAX_MATRIX_PER_SIZE <= 7) ? 3 : // 4åˆ°7ä¸ªå¿…é¡»ç”¨3ä½ï¼
+                       (MAX_MATRIX_PER_SIZE <= 15) ? 4 :
+                       5;
 
 // ---------------------------
-// ÄÚ²¿ºËÐÄÊý×é£¨ÓëÔ­Âß¼­Ò»ÖÂ£¬ÎÞ±ä»¯£©
+// ï¿½Ú²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é£¨ï¿½ï¿½Ô­ï¿½ß¼ï¿½Ò»ï¿½Â£ï¿½ï¿½Þ±ä»¯ï¿½ï¿½
 // ---------------------------
-reg [DATA_WIDTH-1:0] mem [0:MATRIX_NUM-1] [0:MEM_DEPTH_PER_MATRIX-1];  // È«¾Ö¾ØÕó´æ´¢
-reg [2:0] row_self [0:MATRIX_NUM-1];  // Ã¿¸ö¾ØÕóµÄÊµ¼ÊÐÐÊý
-reg [2:0] col_self [0:MATRIX_NUM-1];  // Ã¿¸ö¾ØÕóµÄÊµ¼ÊÁÐÊý
-reg [MATRIX_IDX_W-1:0] size2matrix [1:MAX_SIZE] [1:MAX_SIZE] [0:MAX_MATRIX_PER_SIZE-1];  // ¹æÄ£¡úÈ«¾ÖË÷ÒýÓ³Éä
-reg [SEL_IDX_W-1:0] size_cnt [1:MAX_SIZE] [1:MAX_SIZE];  // Ã¿¸ö¹æÄ£µÄ¾ØÕó¼ÆÊý
-reg [0:MATRIX_NUM-1] matrix_init_flag;  // ¾ØÕó³õÊ¼»¯±ê¼Ç
+reg [DATA_WIDTH-1:0] mem [0:MATRIX_NUM-1] [0:MEM_DEPTH_PER_MATRIX-1];  // È«ï¿½Ö¾ï¿½ï¿½ï¿½æ´¢
+reg [2:0] row_self [0:MATRIX_NUM-1];  // Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+reg [2:0] col_self [0:MATRIX_NUM-1];  // Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+reg [MATRIX_IDX_W-1:0] size2matrix [1:MAX_SIZE] [1:MAX_SIZE] [0:MAX_MATRIX_PER_SIZE-1];  // ï¿½ï¿½Ä£ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½
+reg [SEL_IDX_W-1:0] size_cnt [1:MAX_SIZE] [1:MAX_SIZE];  // Ã¿ï¿½ï¿½ï¿½ï¿½Ä£ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+reg [0:MATRIX_NUM-1] matrix_init_flag;  // ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½
 
 // ---------------------------
-// ÄÚ²¿ÁÙÊ±±äÁ¿£¨ËùÓÐ±äÁ¿¾ùÔÚÍâ²¿ÉùÃ÷£¬ÎÞ±ä»¯£©
+// ï¿½Ú²ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â²¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ±ä»¯ï¿½ï¿½
 // ---------------------------
-// Ð´ÈëÂß¼­Ïà¹Ø
-reg [2:0] r_store, c_store;                          // ÓÐÐ§´æ´¢¹æÄ££¨ÐÐ/ÁÐ£©
-reg [MATRIX_IDX_W-1:0] valid_target_idx;             // ÓÐÐ§Ä¿±êË÷Òý£¨±ß½ç±£»¤£©
-reg [SEL_IDX_W-1:0] curr_cnt;                        // Í¬¹æÄ£µ±Ç°¼ÆÊý
+// Ð´ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½
+reg [2:0] r_store, c_store;                          // ï¿½ï¿½Ð§ï¿½æ´¢ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½/ï¿½Ð£ï¿½
+reg [MATRIX_IDX_W-1:0] valid_target_idx;             // ï¿½ï¿½Ð§Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß½ç±£ï¿½ï¿½ï¿½ï¿½
+reg [SEL_IDX_W-1:0] curr_cnt;                        // Í¬ï¿½ï¿½Ä£ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½
 
-// ²éÑ¯Êä³öÏà¹Ø
-reg [2:0] valid_scale_r, valid_scale_c;               // ÓÐÐ§²éÑ¯¹æÄ£
-reg [MATRIX_IDX_W-1:0] target_global_idx;             // Ä¿±ê¾ØÕóÈ«¾ÖË÷Òý
-reg [SEL_IDX_W-1:0] valid_req_idx;                   // ÓÐÐ§²éÑ¯ÐòºÅ
+// ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+reg [2:0] valid_scale_r, valid_scale_c;               // ï¿½ï¿½Ð§ï¿½ï¿½Ñ¯ï¿½ï¿½Ä£
+reg [MATRIX_IDX_W-1:0] target_global_idx;             // Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+reg [SEL_IDX_W-1:0] valid_req_idx;                   // ï¿½ï¿½Ð§ï¿½ï¿½Ñ¯ï¿½ï¿½ï¿½
 
 // ---------------------------
-// 1. ¸´Î»³õÊ¼»¯£¨Ê±ÐòÂß¼­£¬½ö¸´Î»Ê±Ö´ÐÐ£¬ÎÞ±ä»¯£©
+// 1. ï¿½ï¿½Î»ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î»Ê±Ö´ï¿½Ð£ï¿½ï¿½Þ±ä»¯ï¿½ï¿½
 // ---------------------------
 integer m, d, r, c, s, gg;
-always @(posedge rst_n or negedge rst_n) begin  // Òì²½¸´Î»£¬È·±£³õÊ¼»¯¿É¿¿
+always @(posedge rst_n or negedge rst_n) begin  // ï¿½ì²½ï¿½ï¿½Î»ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½É¿ï¿½
     if (!rst_n) begin
-        // 1.1 È«¾Ö´æ´¢³õÊ¼»¯£¨ËùÓÐÔªËØÇå0£©
+        // 1.1 È«ï¿½Ö´æ´¢ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½
         for (m = 0; m < MATRIX_NUM; m = m + 1) begin
             for (d = 0; d < MEM_DEPTH_PER_MATRIX; d = d + 1) begin
                 mem[m][d] <= {DATA_WIDTH{1'b0}};
             end
         end
 
-        // 1.2 ¾ØÕó¹æÄ£+³õÊ¼»¯±ê¼Ç³õÊ¼»¯
+        // 1.2 ï¿½ï¿½ï¿½ï¿½ï¿½Ä£+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ç³ï¿½Ê¼ï¿½ï¿½
         for (m = 0; m < MATRIX_NUM; m = m + 1) begin
             row_self[m] <= 1'd1;
             col_self[m] <= 1'd1;
             matrix_init_flag[m] <= 1'b0;
         end
 
-        // 1.3 ¹æÄ£Ó³Éä±íºÍ¼ÆÊýÆ÷³õÊ¼»¯
+        // 1.3 ï¿½ï¿½Ä£Ó³ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½
         for (r = 1; r <= MAX_SIZE; r = r + 1) begin
             for (c = 1; c <= MAX_SIZE; c = c + 1) begin
                 size_cnt[r][c] <= {SEL_IDX_W{1'b0}};
@@ -148,33 +147,33 @@ always @(posedge rst_n or negedge rst_n) begin  // Òì²½¸´Î»£¬È·±£³õÊ¼»¯¿É¿¿
             end
         end
 
-        // 1.4 Ô¤´æ¾ØÕó³õÊ¼»¯£¨Ê¾ÀýÊý¾Ý£¬º¬¸ºÊý²¹Âë£©
-        // Ô¤´æ2x3¾ØÕó0£¨È«¾ÖË÷Òý0£©
+        // 1.4 Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë£©
+        // Ô¤ï¿½ï¿½2x3ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½
         mem[0][0] <= 8'h01; mem[0][1] <= 8'h02; mem[0][2] <= 8'hFB;
         mem[0][3] <= 8'h04; mem[0][4] <= 8'h05; mem[0][5] <= 8'h06;
         row_self[0] <= 3'd2; col_self[0] <= 3'd3;
         matrix_init_flag[0] <= 1'b1;
 
-        // Ô¤´æ2x3¾ØÕó1£¨È«¾ÖË÷Òý1£©
+        // Ô¤ï¿½ï¿½2x3ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1ï¿½ï¿½
         mem[1][0] <= 8'h11; mem[1][1] <= 8'h12; mem[1][2] <= 8'h80;
         mem[1][3] <= 8'h14; mem[1][4] <= 8'h15; mem[1][5] <= 8'h16;
         row_self[1] <= 3'd2; col_self[1] <= 3'd3;
         matrix_init_flag[1] <= 1'b1;
 
-        // Ô¤´æ2x3¾ØÕó2£¨È«¾ÖË÷Òý2£©
+        // Ô¤ï¿½ï¿½2x3ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½2ï¿½ï¿½
         mem[2][0] <= 8'h21; mem[2][1] <= 8'h22; mem[2][2] <= 8'hFF;
         mem[2][3] <= 8'h24; mem[2][4] <= 8'h25; mem[2][5] <= 8'h26;
         row_self[2] <= 3'd2; col_self[2] <= 3'd3;
         matrix_init_flag[2] <= 1'b1;
 
-        // Ô¤´æ3x4¾ØÕó£¨È«¾ÖË÷Òý3£©
+        // Ô¤ï¿½ï¿½3x4ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½3ï¿½ï¿½
         for (gg = 0; gg < 12; gg = gg + 1) begin
             mem[3][gg] <= 8'h31 + gg;
         end
         row_self[3] <= 3'd3; col_self[3] <= 3'd4;
         matrix_init_flag[3] <= 1'b1;
 
-        // 1.5 ¸üÐÂÔ¤´æ¾ØÕóµÄ¹æÄ£Ó³Éä±íºÍ¼ÆÊýÆ÷
+        // 1.5 ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½Ä¹ï¿½Ä£Ó³ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½
         size2matrix[2][3][0] <= 3'd0;
         size2matrix[2][3][1] <= 3'd1;
         size2matrix[2][3][2] <= 3'd2;
@@ -186,25 +185,25 @@ always @(posedge rst_n or negedge rst_n) begin  // Òì²½¸´Î»£¬È·±£³õÊ¼»¯¿É¿¿
 end
 
 // ---------------------------
-// 2. ºËÐÄ×éºÏÂß¼­Ð´Èë£¨ÎÞÊ±ÖÓ£¬wr_enÓÐÐ§¼´Ö´ÐÐ£©
+// 2. ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½Ð´ï¿½ë£¨ï¿½ï¿½Ê±ï¿½Ó£ï¿½wr_enï¿½ï¿½Ð§ï¿½ï¿½Ö´ï¿½Ð£ï¿½
 // ---------------------------
 always @(*) begin
     // ---------------------------
-    // 2.1 ÊäÈë±ß½ç±£»¤£¨±ÜÃâÎÞÐ§Ð´Èë£©
+    // 2.1 ï¿½ï¿½ï¿½ï¿½ß½ç±£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§Ð´ï¿½ë£©
     // ---------------------------
-    // ÓÐÐ§Ä¿±êË÷Òý£º³¬³ö·¶Î§ÔòÄ¬ÈÏ0
+    // ï¿½ï¿½Ð§Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î§ï¿½ï¿½Ä¬ï¿½ï¿½0
     valid_target_idx = (target_idx < MATRIX_NUM) ? target_idx : {MATRIX_IDX_W{1'b0}};
-    // ÓÐÐ§´æ´¢¹æÄ££º³¬³ö1~MAX_SIZEÔòÄ¬ÈÏ1x1
+    // ï¿½ï¿½Ð§ï¿½æ´¢ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½1~MAX_SIZEï¿½ï¿½Ä¬ï¿½ï¿½1x1
     r_store = (write_row >= 1 && write_row <= MAX_SIZE) ? write_row : 1'd1;
     c_store = (write_col >= 1 && write_col <= MAX_SIZE) ? write_col : 1'd1;
-    // µ±Ç°¹æÄ£µÄ¾ØÕó¼ÆÊý
+    // ï¿½ï¿½Ç°ï¿½ï¿½Ä£ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     curr_cnt = size_cnt[r_store][c_store];
 
     // ---------------------------
-    // 2.2 ×éºÏÂß¼­Ð´Èë£¨wr_enÓÐÐ§Ê±Ö´ÐÐ£¬·ñÔò±£³ÖÔ­×´Ì¬£©
+    // 2.2 ï¿½ï¿½ï¿½ï¿½ß¼ï¿½Ð´ï¿½ë£¨wr_enï¿½ï¿½Ð§Ê±Ö´ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ò±£³ï¿½Ô­×´Ì¬ï¿½ï¿½
     // ---------------------------
     if (wr_en) begin
-        // 2.2.1 Ð´Èë25¸ö¾ØÕóÔªËØ£¨Ö±½ÓÓ³ÉäµØÖ·0~24£¬ÎÞµØÖ·ÊäÈë£©
+        // 2.2.1 Ð´ï¿½ï¿½25ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôªï¿½Ø£ï¿½Ö±ï¿½ï¿½Ó³ï¿½ï¿½ï¿½Ö·0~24ï¿½ï¿½ï¿½Þµï¿½Ö·ï¿½ï¿½ï¿½ë£©
         mem[valid_target_idx][0]  = data_in_0;
         mem[valid_target_idx][1]  = data_in_1;
         mem[valid_target_idx][2]  = data_in_2;
@@ -231,26 +230,26 @@ always @(*) begin
         mem[valid_target_idx][23] = data_in_23;
         mem[valid_target_idx][24] = data_in_24;
 
-        // 2.2.2 ¸üÐÂ¾ØÕóÊµ¼ÊÐÐ/ÁÐÊý
+        // 2.2.2 ï¿½ï¿½ï¿½Â¾ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½
         row_self[valid_target_idx] = r_store;
         col_self[valid_target_idx] = c_store;
 
-        // 2.2.3 ³õÊ¼»¯±ê¼ÇÓë¹æÄ£Ó³Éä±í¸üÐÂ£¨½öÊ×´ÎÐ´ÈëÊ±Ö´ÐÐ£©
+        // 2.2.3 ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ó³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Â£ï¿½ï¿½ï¿½ï¿½×´ï¿½Ð´ï¿½ï¿½Ê±Ö´ï¿½Ð£ï¿½
         if (!matrix_init_flag[valid_target_idx] && (curr_cnt < MAX_MATRIX_PER_SIZE)) begin
-            // ÐÂÔö¾ØÕóµ½¹æÄ£Ó³Éä±í
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½óµ½¹ï¿½Ä£Ó³ï¿½ï¿½ï¿½
             size2matrix[r_store][c_store][curr_cnt] = valid_target_idx;
-            // µÝÔöµ±Ç°¹æÄ£µÄ¾ØÕó¼ÆÊý
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Ä£ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             size_cnt[r_store][c_store] = curr_cnt + 1'd1;
-            // ±ê¼Ç¾ØÕóÒÑ³õÊ¼»¯
+            // ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½ï¿½Ñ³ï¿½Ê¼ï¿½ï¿½
             matrix_init_flag[valid_target_idx] = 1'b1;
         end else begin
-            // ·ÇÊ×´ÎÐ´Èë£º±£³ÖÓ³Éä±íºÍ¼ÆÊý²»±ä£¬½ö¸üÐÂÊý¾ÝºÍ¹æÄ£
+            // ï¿½ï¿½ï¿½×´ï¿½Ð´ï¿½ë£ºï¿½ï¿½ï¿½ï¿½Ó³ï¿½ï¿½ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÝºÍ¹ï¿½Ä£
             size2matrix[r_store][c_store][curr_cnt] = size2matrix[r_store][c_store][curr_cnt];
             size_cnt[r_store][c_store] = curr_cnt;
             matrix_init_flag[valid_target_idx] = matrix_init_flag[valid_target_idx];
         end
     end else begin
-        // 2.2.4 Ð´Ê¹ÄÜÎÞÐ§£ºËùÓÐÄÚ²¿Êý×é±£³ÖÔ­×´Ì¬£¨ÎÞlatch£©
+        // 2.2.4 Ð´Ê¹ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½ï¿½é±£ï¿½ï¿½Ô­×´Ì¬ï¿½ï¿½ï¿½ï¿½latchï¿½ï¿½
         mem[valid_target_idx][0]  = mem[valid_target_idx][0];
         mem[valid_target_idx][1]  = mem[valid_target_idx][1];
         mem[valid_target_idx][2]  = mem[valid_target_idx][2];
@@ -286,18 +285,18 @@ always @(*) begin
 end
 
 // ---------------------------
-// 3. ºËÐÄ²éÑ¯Êä³öÂß¼­£¨×éºÏÂß¼­£¬ÓëÖ®Ç°Ò»ÖÂ£¬ÎÞ±ä»¯£©
+// 3. ï¿½ï¿½ï¿½Ä²ï¿½Ñ¯ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½ï¿½Ö®Ç°Ò»ï¿½Â£ï¿½ï¿½Þ±ä»¯ï¿½ï¿½
 // ---------------------------
 always @(*) begin
-    // 3.1 ÊäÈë±ß½ç±£»¤
+    // 3.1 ï¿½ï¿½ï¿½ï¿½ß½ç±£ï¿½ï¿½
     valid_scale_r = (req_scale_row >= 1 && req_scale_row <= MAX_SIZE) ? req_scale_row : 1'd1;
     valid_scale_c = (req_scale_col >= 1 && req_scale_col <= MAX_SIZE) ? req_scale_col : 1'd1;
     valid_req_idx = (req_idx < MAX_MATRIX_PER_SIZE) ? req_idx : {SEL_IDX_W{1'b0}};
 
-    // 3.2 Êä³öÄ¿±ê¹æÄ£µÄ¾ØÕó×ÜÊý
+    // 3.2 ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ä£ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     scale_matrix_cnt = size_cnt[valid_scale_r][valid_scale_c];
 
-    // 3.3 ¼ÆËãÄ¿±ê¾ØÕóµÄÈ«¾ÖË÷Òý
+    // 3.3 ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     if (scale_matrix_cnt > 0 && valid_req_idx < scale_matrix_cnt) begin
         target_global_idx = size2matrix[valid_scale_r][valid_scale_c][valid_req_idx];
         matrix_valid = 1'b1;
@@ -306,7 +305,7 @@ always @(*) begin
         matrix_valid = 1'b0;
     end
 
-    // 3.4 Êä³öÄ¿±ê¾ØÕóµÄ25¸öÔªËØ
+    // 3.4 ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½25ï¿½ï¿½Ôªï¿½ï¿½
     matrix_data_0  = mem[target_global_idx][0];
     matrix_data_1  = mem[target_global_idx][1];
     matrix_data_2  = mem[target_global_idx][2];
@@ -333,7 +332,7 @@ always @(*) begin
     matrix_data_23 = mem[target_global_idx][23];
     matrix_data_24 = mem[target_global_idx][24];
 
-    // 3.5 Êä³öÄ¿±ê¾ØÕóµÄÊµ¼ÊÐÐ/ÁÐÊý
+    // 3.5 ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½
     matrix_row = row_self[target_global_idx];
     matrix_col = col_self[target_global_idx];
     matrix_row = (matrix_row >= 1 && matrix_row <= MAX_SIZE) ? matrix_row : 1'd1;

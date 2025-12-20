@@ -1,31 +1,31 @@
 module top4 #(
     parameter DATA_WIDTH          = 9,        // 数据位宽
-    parameter MAX_SIZE            = 5,        // 单个矩阵最大规模（1~5）
-    parameter MATRIX_NUM          = 8,        // 全局最大矩阵数量
-    parameter MAX_MATRIX_PER_SIZE = 4,        // 每个规模最多存储矩阵数
-    parameter DEBOUNCE_CNT_MAX    = 20'd100000, // 按键消抖计数阈值
+    parameter MAX_SIZE            = 5,        // 单个矩阵�?大规模（1~5�?
+    parameter MATRIX_NUM          = 8,        // 全局�?大矩阵数�?
+    parameter MAX_MATRIX_PER_SIZE = 4,        // 每个规模�?多存储矩阵数
+    parameter DEBOUNCE_CNT_MAX    = 20'd100000, // 按键消抖计数阈�??
     parameter CLK_FREQ            = 100_000_000,
     parameter BAUD_RATE           = 115200
 )(
     input  wire clk,            // 系统时钟
-    input  wire rst_n,          // 低有效复位
+    input  wire rst_n,          // 低有效复�?
     input  wire uart_rx,        // UART接收数据
-    output wire uart_tx,        // UART发送数据
-    input  wire [2:0] sw_mode,  // 模式选择开关
+    output wire uart_tx,        // UART发�?�数�?
+    input  wire [2:0] sw_mode,  // 模式选择�?�?
     input  wire btn_confirm,    // 确认按钮
     input  wire btn_return,     // 返回按钮
     input  wire btn_random,     // 随机按钮
-    output reg led_error_status,// 错误状态指示灯
-    output [7:0] seg_cs_pin,    // 8个数码管位选
-    output [7:0] seg_data_0_pin,// 数码管段选0
-    output [7:0] seg_data_1_pin,// 数码管段选1
+    output reg led_error_status,// 错误状�?�指示灯
+    output [7:0] seg_cs_pin,    // 8个数码管位�??
+    output [7:0] seg_data_0_pin,// 数码管段�?0
+    output [7:0] seg_data_1_pin,// 数码管段�?1
     output reg [13:0] led
 );
 
 // ========================== 1. 内部信号定义 ==========================
 
 
-// 数码管显示模块相关信号
+// 数码管显示模块相关信�?
 reg [11:0] menuState;
 reg [8:0] seconds;
 reg [31:0] sec_cnt;
@@ -39,9 +39,9 @@ wire btn_random_pulse;
 wire        wr_en;
 reg [2:0]  wr_row;
 reg [2:0]  wr_col;
-reg [DATA_WIDTH-1:0] storage_input_data[0:24]; // 最终连接到Storage的数据
+reg [DATA_WIDTH-1:0] storage_input_data[0:24]; // �?终连接到Storage的数�?
 
-// 来自 RX Handler 的信号
+// 来自 RX Handler 的信�?
 wire rx_handler_wr_en;
 wire [2:0] rx_handler_row;
 wire [2:0] rx_handler_col;
@@ -55,13 +55,14 @@ reg write_flag;      // 写入完成标志
 assign wr_en = wr_en_reg;
 
 
-// 显示与查询相关
+// 显示与查询相�?
 reg [2:0] req_scale_row;
 reg [2:0] req_scale_col;
 reg [2:0] req_index;
 wire [2:0] output_matrix_row;
 wire [2:0] output_matrix_col;
-wire [3:0] num; 
+wire [4:0] num;           // 改为 5 位，匹配 Info 模块
+wire [2:0] storage_cnt_raw; // 新增�?个变量，专门用来�? Storage 修正后的 3 位输�?
 
 reg [DATA_WIDTH-1:0] matrix_display_data[0:24];
 reg [2:0] display_row;
@@ -81,29 +82,55 @@ reg [DATA_WIDTH-1:0] scalar_value;
 reg  start_info_display_pulse;
 reg start_search_display_pulse;
 
-// --- Matrix Info Display 专用信号 ---
-wire        info_busy;          // Info 模块忙信号
-wire        info_tx_start;      // Info 模块请求发送
-wire [7:0]  info_tx_data;       // Info 模块发送的数据
-wire [2:0]  info_qry_row;       // Info 模块查询行
-wire [2:0]  info_qry_col;       // Info 模块查询列
+// 1. Matrix Displayer 的信�?
+    wire        disp_tx_start;
+    wire [7:0]  disp_tx_data;
+    wire        disp_busy;      // 对应 matrix_displayer �? busy
 
-wire uart_tx_start_info;
-wire [7:0] uart_tx_data_info;
-wire [2:0] scale_matrix_cnt; // 对应存储模块的 scale_matrix_cnt 输出
+    // 2. Info Display 的信�?
+    wire        info_tx_start;
+    wire [7:0]  info_tx_data;
+    wire        info_busy;      // 对应 matrix_info_display �? busy
+
+    // 3. Search Displayer 的信�?
+    wire        search_tx_start;
+    wire [7:0]  search_tx_data;
+    wire        search_busy;    // 对应 matrix_search_displayer �? busy
+
+    // 4. �?终汇�? UART TX 的信�?
+    reg         final_tx_start;
+    reg  [7:0]  final_tx_data;
+    wire        uart_real_busy; // 真正�? UART 忙信�?
 
 
-// --- Search Displayer 相关信号 ---
-wire        disp_busy;
-wire [2:0]  disp_req_row;
-wire [2:0]  disp_req_col;
-wire [2:0]  disp_req_idx;
-wire [7:0]  disp_tx_data;
-wire        disp_tx_start;
 
-// 扁平化的读取数据，用于传给 displayer
+
+// 定义各模块对 Storage 的查询信�?
+    // 1. Info 模块想查的地�?
+    wire [2:0] info_qry_row;
+    wire [2:0] info_qry_col;
+
+    // 2. Search 模块想查的地�?
+    wire [2:0] search_req_row;
+    wire [2:0] search_req_col;
+    wire [2:0] search_req_idx;
+
+
+    // 3. �?终连�? Storage 的信�? (仲裁结果)
+    reg [2:0] final_storage_row;
+    reg [2:0] final_storage_col;
+    reg [2:0] final_storage_idx;
+
+
+
+
+
+wire [2:0] scale_matrix_cnt; // 对应存储模块�? scale_matrix_cnt 输出
+
+
+// 扁平化的读取数据，用于传�? displayer
 wire [25*DATA_WIDTH-1:0] storage_data_flat;
-// 将 storage_output_data (array) 打包成 flat vector
+// �? storage_output_data (array) 打包�? flat vector
 // 假设 storage_output_data[0] 对应低位
 genvar k;
 generate
@@ -118,7 +145,7 @@ wire [4:0] rand_cnt;
 
 // ========================== 2. 解决多驱动问题的核心修改 ==========================
 
-// 最终聚合的运算结果 (Reg类型，由Mux驱动)
+// �?终聚合的运算结果 (Reg类型，由Mux驱动)
 reg [DATA_WIDTH-1:0] matrix_ans [0:24]; 
 reg [2:0] matrix_ans_r_out;
 reg [2:0] matrix_ans_c_out;
@@ -126,7 +153,7 @@ wire calc_busy; // 聚合的忙信号
 
 // --- 各个子模块的独立输出 Wire ---
 
-// A. 加法器输出
+// A. 加法器输�?
 wire [DATA_WIDTH-1:0] add_res [0:24];
 wire [2:0] add_r_out, add_c_out;
 wire add_busy_sig, add_valid;
@@ -146,7 +173,7 @@ wire [DATA_WIDTH-1:0] mult_res [0:24];
 wire [2:0] mult_r_out, mult_c_out;
 wire mult_busy_sig, mult_valid;
 
-// E. 卷积输出 (80个数据)
+// E. 卷积输出 (80个数�?)
 wire [DATA_WIDTH-1:0] conv_res [0:79];
 wire conv_busy_sig;
 
@@ -168,10 +195,10 @@ reg rand_gen_en;
 reg [7:0] min_val;   
 reg [7:0] max_val;   
 
-// ========== 状态机相关 ==========
+// ========== 状�?�机相关 ==========
 reg [9:0] state;
 
-// UART发送缓冲区
+// UART发�?�缓冲区
 reg [7:0] uart_buffer [0:63];
 reg [5:0] uart_buf_ptr;
 reg uart_send_flag;
@@ -180,7 +207,34 @@ reg [7:0] uart_byte_cnt;
 // 运算模块使能控制
 reg add_en, scalar_en, trans_en, mult_en, conv_en;
 
-// ========================== 3. 模块实例化 ==========================
+// ========================== 3. 模块实例�? ==========================
+always @(*) begin
+        // 优先级�?�辑：谁想发数据，就把谁连到 UART �?
+        // 这里假设同一时间只有�?个模块会工作（由你的状�?�机保证�?
+        
+        if (disp_tx_start) begin
+            // 既然 Displayer 想发送，就�?�它
+            final_tx_start = disp_tx_start;
+            final_tx_data  = disp_tx_data;
+        end 
+        else if (info_tx_start) begin
+            // Info 模块想发�?
+            final_tx_start = info_tx_start;
+            final_tx_data  = info_tx_data;
+        end 
+        else if (search_tx_start) begin
+            // Search 模块想发�?
+            final_tx_start = search_tx_start;
+            final_tx_data  = search_tx_data;
+        end 
+        else begin
+            // 没人发�?�，保持安静
+            final_tx_start = 1'b0;
+            final_tx_data  = 8'd0;
+        end
+    end
+
+
 
 uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_rx (
     .clk(clk), .rst_n(rst_n),
@@ -189,10 +243,10 @@ uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_rx (
 
 uart_tx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_tx (
     .clk(clk), .rst_n(rst_n),
-    .tx_start((info_busy) ? info_tx_start : disp_tx_start), 
-    .tx_data ( (info_busy) ? info_tx_data  : disp_tx_data),
-    .tx         (uart_tx),
-        .tx_busy    (tx_busy)
+    .tx_start (final_tx_start),  // 连到仲裁后的信号
+        .tx_data  (final_tx_data),   // 连到仲裁后的信号
+        .tx       (uart_tx),         // 输出到物理引�?
+        .tx_busy  (uart_real_busy)   // 输出忙信号给�?有子模块
 );
 
 key_debounce u_keydebounce1 (
@@ -224,6 +278,37 @@ matrix_rx_handler u_rx_handler (
     .save_done_pulse(rx_handler_done)
 );
 
+
+
+    // Storage 地址仲裁逻辑
+    always @(*) begin
+        //if (start_info_display_pulse) begin 
+        
+        if (start_info_display_pulse || info_busy) begin 
+            // Info 模块只需要查数量 (cnt)，不�?要读具体数据 (idx 设为0即可)
+            final_storage_row = info_qry_row;
+            final_storage_col = info_qry_col;
+            final_storage_idx = 3'd0; 
+        end
+        else if (start_search_display_pulse || search_busy) begin 
+            
+            // Search 模块�?要查全部
+            final_storage_row = search_req_row;
+            final_storage_col = search_req_col;
+            final_storage_idx = search_req_idx;
+        end
+        else begin
+            
+            // 使用主状态机控制的寄存器 
+            final_storage_row = req_scale_row;
+            final_storage_col = req_scale_col;
+            final_storage_idx = req_index;
+        end
+    end
+
+
+
+
 // Storage
 multi_matrix_storage #(
     .DATA_WIDTH(DATA_WIDTH), .MAX_SIZE(MAX_SIZE), .MATRIX_NUM(MATRIX_NUM), .MAX_MATRIX_PER_SIZE(MAX_MATRIX_PER_SIZE)
@@ -240,10 +325,10 @@ multi_matrix_storage #(
     .data_in_18(storage_input_data[18]),.data_in_19(storage_input_data[19]),.data_in_20(storage_input_data[20]),
     .data_in_21(storage_input_data[21]),.data_in_22(storage_input_data[22]),.data_in_23(storage_input_data[23]),
     .data_in_24(storage_input_data[24]),
-    .req_scale_row( (info_busy) ? info_qry_row : req_scale_row),
-    .req_scale_col((info_busy) ? info_qry_col : req_scale_col),
-    .req_idx      ((info_busy) ? 3'd0         : disp_req_idx),         
-    .scale_matrix_cnt(num),
+    .req_scale_row(final_storage_row),
+    .req_scale_col(final_storage_col),
+    .req_idx      (final_storage_idx),       
+    .scale_matrix_cnt(scale_matrix_cnt),
     .matrix_data_0(storage_output_data[0]), .matrix_data_1(storage_output_data[1]), .matrix_data_2(storage_output_data[2]),
     .matrix_data_3(storage_output_data[3]), .matrix_data_4(storage_output_data[4]), .matrix_data_5(storage_output_data[5]),
     .matrix_data_6(storage_output_data[6]), .matrix_data_7(storage_output_data[7]), .matrix_data_8(storage_output_data[8]),
@@ -255,6 +340,8 @@ multi_matrix_storage #(
     .matrix_data_24(storage_output_data[24]),
     .matrix_row(output_matrix_row), .matrix_col(output_matrix_col), .matrix_valid()
 );
+
+assign num = {2'b00, scale_matrix_cnt};
 
 // Random Generator
 random_matrix_generator #(.WIDTH(DATA_WIDTH), .MAX_DIM(MAX_SIZE)) u_rand_matrix (
@@ -417,7 +504,7 @@ matrix_conv #(.DATA_WIDTH(DATA_WIDTH)) u_matrix_conv (
     .data_in_21(matrix_opr_1[21]),.data_in_22(matrix_opr_1[22]),.data_in_23(matrix_opr_1[23]),
     .data_in_24(matrix_opr_1[24]),
     .en(conv_en),
-    // 输出连接到独立Wire (共80个输出)
+    // 输出连接到独立Wire (�?80个输�?)
     .data_out_0(conv_res[0]), .data_out_1(conv_res[1]), .data_out_2(conv_res[2]),
     .data_out_3(conv_res[3]), .data_out_4(conv_res[4]), .data_out_5(conv_res[5]),
     .data_out_6(conv_res[6]), .data_out_7(conv_res[7]), .data_out_8(conv_res[8]),
@@ -454,7 +541,7 @@ matrix_conv #(.DATA_WIDTH(DATA_WIDTH)) u_matrix_conv (
 matrix_displayer u_matrix_displayer (
     .clk(clk), .rst_n(rst_n),
     .start(display_start),
-    .busy(display_busy), 
+    .busy(disp_busy), 
     .matrix_row(display_row), .matrix_col(display_col),
     .d0(matrix_display_data[0]), .d1(matrix_display_data[1]), .d2(matrix_display_data[2]),
     .d3(matrix_display_data[3]), .d4(matrix_display_data[4]), .d5(matrix_display_data[5]),
@@ -465,7 +552,9 @@ matrix_displayer u_matrix_displayer (
     .d18(matrix_display_data[18]),.d19(matrix_display_data[19]),.d20(matrix_display_data[20]),
     .d21(matrix_display_data[21]),.d22(matrix_display_data[22]),.d23(matrix_display_data[23]),
     .d24(matrix_display_data[24]),
-    .tx_start(tx_start), .tx_data(tx_data), .tx_busy(tx_busy)
+    .tx_start   (disp_tx_start), // 连到专用�?
+    .tx_data    (disp_tx_data),  // 连到专用�?
+    .tx_busy    (uart_real_busy) // 监听 UART 真正的忙信号
 );
 
 // Segment Display
@@ -483,14 +572,14 @@ matrix_info_display #(
     ) u_matrix_info (
         .clk(clk),
         .rst_n(rst_n),
-        .start_req(start_info_display_pulse), // 生成一个开始脉冲（例如按下确认键且模式匹配时）
+        .start_req(start_info_display_pulse), // 生成�?个开始脉冲（例如按下确认键且模式匹配时）
         .busy(info_busy),
-        .uart_tx_busy(tx_busy),     // 连接现有的 uart_tx_busy
-        .uart_tx_start(info_tx_start),
-        .uart_tx_data(info_tx_data),
+        .uart_tx_busy   (uart_real_busy), // 监听 UART 真正的忙信号
+        .uart_tx_start  (info_tx_start),  // 连到专用�?
+        .uart_tx_data   (info_tx_data),   // 连到专用�?
         .qry_row(info_qry_row),
         .qry_col(info_qry_col),
-        .qry_cnt(scale_matrix_cnt),       // 连接存储模块的计数输出
+        .qry_cnt(scale_matrix_cnt),       // 连接存储模块的计数输�?
         .random_r       (rand_r),       // wire [2:0] rand_r
         .random_c       (rand_c),       // wire [2:0] rand_c
         .random_cnt     (rand_cnt)      // wire [4:0] rand_cnt
@@ -498,38 +587,38 @@ matrix_info_display #(
 
 // matrix_search_displayer
 matrix_search_displayer #(
-    .MAX_MATRICES(MAX_MATRIX_PER_SIZE), // 使用 top4 定义的参数
+    .MAX_MATRICES(MAX_MATRIX_PER_SIZE), // 使用 top4 定义的参�?
     .DATA_WIDTH(DATA_WIDTH)             // 传入 9
 ) u_search_displayer (
     .clk(clk),
     .rst_n(rst_n),
     .start(start_search_display_pulse),        // 连接你的触发信号
-    .busy(disp_busy),
+    .busy(search_busy),
     
     // 设置想要搜索的目标维度，这里示例为手动输入的 wr_row/col 
-    // 或者你可以连接特定的寄存器，比如 req_scale_row
+    // 或�?�你可以连接特定的寄存器，比�? req_scale_row
     .target_row(req_scale_row), // 使用用户当前设置的查询行
     .target_col(req_scale_col), // 使用用户当前设置的查询列
     
-    // Storage 接口 (输出到 MUX)
-    .req_scale_row(disp_req_row),
-    .req_scale_col(disp_req_col),
-    .req_idx(disp_req_idx),
+    // Storage 接口 (输出�? MUX)
+    .req_scale_row  (search_req_row),    
+    .req_scale_col  (search_req_col),    
+    .req_idx        (search_req_idx),     
     
     // Storage 接口 (输入)
-    .scale_matrix_cnt(num[2:0]), // num 是 4bit，截取低3位或确保匹配
+    .scale_matrix_cnt(num[2:0]), // num �? 4bit，截取低3位或确保匹配
     .read_data(storage_data_flat),
     
     // UART 接口
-    .tx_data(disp_tx_data),
-    .tx_start(disp_tx_start),
-    .tx_busy(tx_busy)
+    .tx_start   (search_tx_start), // 连到专用�?
+    .tx_data    (search_tx_data),  // 连到专用�?
+    .tx_busy    (uart_real_busy)  // 监听 UART 真正的忙信号
 );
 
 // 缓存
 reg [7:0] rx_buf;
 
-// 状态机
+// 状�?�机
 integer i;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -548,20 +637,20 @@ always @(posedge clk or negedge rst_n) begin
         display_start <= 0;
         // 测试用灯
         led <= 14'b00_0000_0000_0011;
-        // 初始化 storage inputs
+        // 初始�? storage inputs
         for (i=0; i<25; i=i+1) storage_input_data[i] <= 0;
     end 
     else begin
         menuState <= state;
         case(state)
             10'd000: begin
-                // 初始状态操作（留白）
+                // 初始状�?�操作（留白�?
                 
                 led <= 14'b00_0000_0000_1100;
                 
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
-                        3'b001: state <= 10'd100;  // 模式1输入并存储
+                        3'b001: state <= 10'd100;  // 模式1输入并存�?
                         3'b010: state <= 10'd200;  // 模式2随机生成
                         3'b011: state <= 10'd300;  // 模式3矩阵展示
                         3'b100: state <= 10'd400;  // 模式4运算
@@ -597,34 +686,34 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             9'd120: begin
-                // uart传入矩阵，存储
+                // uart传入矩阵，存�?
                 
-                //1. 监测 RX Handler 的完成信号
+                //1. 监测 RX Handler 的完成信�?
                 if (rx_handler_done) begin
-                    // 锁存地址：将 Handler 解析出的行/列存入 top4 的写地址寄存器
+                    // 锁存地址：将 Handler 解析出的�?/列存�? top4 的写地址寄存�?
                     wr_row <= rx_handler_row;
                     wr_col <= rx_handler_col;
                     
-                    // 锁存数据：将 Handler 输出的 25 个数据锁存到 top4 的 buffer
+                    // 锁存数据：将 Handler 输出�? 25 个数据锁存到 top4 �? buffer
                     for (i  = 0; i < 25; i = i + 1) begin
                         storage_input_data[i] <= rx_handler_data[i];
                     end
                     
-                    // 设置标志位，在下一个时钟周期触发写使能 (确保数据已稳定)
+                    // 设置标志位，在下�?个时钟周期触发写使能 (确保数据已稳�?)
                     write_flag <= 1'b1;
-                end// 2. 执行写入操作 (由 write_flag 触发)
+                end// 2. 执行写入操作 (�? write_flag 触发)
 
                 if (write_flag) begin
                     wr_en_reg <= 1'b1; 
                     write_flag <= 1'b0; 
                 end else begin
-                    wr_en_reg <= 1'b0; // 其他时候保持写无效
+                    wr_en_reg <= 1'b0; // 其他时�?�保持写无效
                 end
 
                 // --- 返回逻辑 ---
                 if (btn_confirm_pulse) begin
                     state <= 9'd000;
-                    // 离开状态前复位关键信号
+                    // 离开状�?�前复位关键信号
                     wr_en_reg <= 1'b0;
                     write_flag <= 1'b0;
                 end
@@ -657,7 +746,7 @@ always @(posedge clk or negedge rst_n) begin
             end
 
             9'd220: begin
-                // uart传入c，随机生成矩阵
+                // uart传入c，随机生成矩�?
                 led <= 14'b01_0000_0000_0000;
                 rand_gen_en <= 1'b1;
                 if(rand_update_done) begin
@@ -698,10 +787,10 @@ always @(posedge clk or negedge rst_n) begin
                 storage_input_data[23] <= rand_data[23];
                 storage_input_data[24] <= rand_data[24];
                 
-                // 【重要】确保在这里 wr_en 是低的，为产生上升沿做准备
+                // 【重要�?�确保在这里 wr_en 是低的，为产生上升沿做准�?
                 wr_en_reg <= 1'b0; 
                 
-                // 跳到专门的"触发状态"
+                // 跳到专门�?"触发状�??"
                 state <= 9'd233; 
             end
             9'd233: begin
@@ -712,18 +801,18 @@ always @(posedge clk or negedge rst_n) begin
                 // 空状态，等待写入脉冲产生
                 state <= 9'd235;
             end
-            // --- 新增状态：产生写脉冲 (Write Pulse) ---
+            // --- 新增状�?�：产生写脉�? (Write Pulse) ---
             9'd235: begin
-                wr_en_reg <= 1'b1; // 拉高写使能
-                state <= 9'd240;   // 立即跳转，只保持一个周期的高电平
+                wr_en_reg <= 1'b1; // 拉高写使�?
+                state <= 9'd240;   // 立即跳转，只保持�?个周期的高电�?
             end
             // ---------------------------------------
 
             9'd240: begin
-                // 【重要】立即拉低写使能！形成 0->1->0 的脉冲
+                // 【重要�?�立即拉低写使能！形�? 0->1->0 的脉�?
                 wr_en_reg <= 1'b0; 
                 
-                // 在这里可以放心地等待多久都行，因为 wr_en 已经是 0 了
+                // 在这里可以放心地等待多久都行，因�? wr_en 已经�? 0 �?
                 if (btn_confirm_pulse) begin
                     state <= 9'd000;
                 end
@@ -735,22 +824,25 @@ always @(posedge clk or negedge rst_n) begin
                 req_scale_col <= 3'd0;
                 
                 start_info_display_pulse<=1'd1;
-                if (btn_confirm_pulse) begin
-                    state <= 9'd310;
-                end
-                if (btn_return_pulse) begin
-                    state <= 9'd000;
-                end
+
+                state <= 9'd301;
+              
+            end
+
+            9'd301: begin
+                // 立刻拉低启动信号
+                start_info_display_pulse <= 1'b0;
+    
+                state <= 9'd310;
             end
 
             9'd310: begin
                 // uart传入r
                 rx_buf <= rx_data;
-                display_start <= 1'b0;
+            
                 start_search_display_pulse <= 1'b0;
-                start_info_display_pulse<=1'd0;
                 display_row <= rx_data-"0";
-                if (btn_confirm_pulse && info_busy) begin
+                if (btn_confirm_pulse) begin
                     state <= 9'd320;
                 end
                 if (btn_return_pulse) begin
@@ -759,20 +851,20 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             9'd320: begin
-                // uart传入c，展示矩阵
+                // uart传入c，展示矩�?
                 rx_buf <= rx_data;
                 display_col <= rx_data-"0";
                 if (btn_confirm_pulse) begin
-                    // 1. 将用户输入的行/列传递给存储查询接口 (matrix_search_displayer 使用)
+                    // 1. 将用户输入的�?/列传递给存储查询接口 (matrix_search_displayer 使用)
                     req_scale_row <= display_row;
-                    // 注意：此时 display_col 已经是最新值（假设用户输入后才按确认）
+                    // 注意：此�? display_col 已经是最新�?�（假设用户输入后才按确认）
                     req_scale_col <= display_col; 
                     
-                    // 2. 拉高启动信号，触发 matrix_search_displayer
+                    // 2. 拉高启动信号，触�? matrix_search_displayer
                     start_search_display_pulse <= 1'b1;
                     
-                    // 3. 跳转到显示保持状态
-                    // 如果停留在 320，display_start 持续为高可能会导致模块不断复位或重发
+                    // 3. 跳转到显示保持状�?
+                    // 如果停留�? 320，display_start 持续为高可能会导致模块不断复位或重发
                     state <= 9'd330; 
                 end
                 
@@ -782,11 +874,11 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             9'd330: begin
-            
-                // 等待用户按下返回或确认键退出显示
+                 start_search_display_pulse <= 1'b0;
+                // 等待用户按下返回或确认键�?出显�?
                 if (btn_return_pulse || btn_confirm_pulse) begin
                     state <= 9'd000;
-                    start_search_display_pulse <= 1'b0;   
+                
                 end
             end
             
@@ -826,7 +918,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd411: begin
-                // uart传入c，展示矩阵
+                // uart传入c，展示矩�?
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
                 
@@ -853,9 +945,12 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd413: begin
+                state <= 10'd414; 
+            end
+            10'd414: begin
                 matrix_opr_1[0] <= storage_output_data[0];
                 matrix_opr_1[1] <= storage_output_data[1];  
-                matrix_opr_1[2] <= storage_output_data[2];
+                matrix_opr_1[2] <= storage_output_data[2]; 
                 matrix_opr_1[3] <= storage_output_data[3];
                 matrix_opr_1[4] <= storage_output_data[4];
                 matrix_opr_1[5] <= storage_output_data[5];
@@ -878,13 +973,48 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
-                state <= 10'd414;
+               /* 
+                matrix_opr_1[0] <= 1;
+                matrix_opr_1[1] <= 1;    
+                matrix_opr_1[2] <= 1;
+                matrix_opr_1[3] <= 1;
+                matrix_opr_1[4] <= 1;
+                matrix_opr_1[5] <=1;
+                matrix_opr_1[6] <= 1;
+                matrix_opr_1[7] <= 1;
+                matrix_opr_1[8] <= 1;
+                matrix_opr_1[9] <= 1;
+                matrix_opr_1[10] <= 1;
+                matrix_opr_1[11] <= 1;
+                matrix_opr_1[12] <= 1;
+                matrix_opr_1[13] <= 1;
+                matrix_opr_1[14] <= 1;
+                matrix_opr_1[15] <= 1;
+                matrix_opr_1[16] <= 1;
+                matrix_opr_1[17] <=1;
+                matrix_opr_1[18] <=1;
+                matrix_opr_1[19] <= 1;
+                matrix_opr_1[20] <= 1;
+                matrix_opr_1[21] <= 1;
+                matrix_opr_1[22] <= 1;
+                matrix_opr_1[23] <= 1;
+                matrix_opr_1[24] <= 1;
+                */
+                state <= 10'd415;
+                
             end
-            10'd414: begin
-                // 将trans_en变为1，开始转置，将转置结果接到display上
+            10'd415: begin
+                // 先拉高使能，不要在这个周期立刻读结果
                 trans_en <= 1;
-                matrix_ans_r_out <= trans_r_out;
-                matrix_ans_c_out <= trans_c_out;
+                // 跳转到等待计算结果的状�??
+                state <= 10'd416; 
+            end
+
+            10'd416: begin
+                // 将trans_en变为1，开始转置，将转置结果接到display�??
+                display_start <= 0;
+                display_row <= trans_r_out;
+                display_col <= trans_c_out;
                 matrix_display_data[0] <=trans_res[0];
                 matrix_display_data[1] <=trans_res[1];
                 matrix_display_data[2] <=trans_res[2];
@@ -910,16 +1040,43 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_display_data[22] <=trans_res[22];
                 matrix_display_data[23] <=trans_res[23];
                 matrix_display_data[24] <=trans_res[24];
+                /*
+                matrix_display_data[0] <=1;
+                matrix_display_data[1] <=1;
+                matrix_display_data[2] <=1;
+                matrix_display_data[3] <=1;
+                matrix_display_data[4] <=1;
+                matrix_display_data[5] <=1;
+                matrix_display_data[6] <=1;
+                matrix_display_data[7] <=1;
+                matrix_display_data[8] <=1;
+                matrix_display_data[9] <=1;
+                matrix_display_data[10] <=1;
+                matrix_display_data[11] <=1;
+                matrix_display_data[12] <=1;
+                matrix_display_data[13] <=1;
+                matrix_display_data[14] <=1;
+                matrix_display_data[15] <=1;
+                matrix_display_data[16] <=1;
+                matrix_display_data[17] <=1;
+                matrix_display_data[18] <=1;
+                matrix_display_data[19] <=1;
+                matrix_display_data[20] <=1;
+                matrix_display_data[21] <=1;
+                matrix_display_data[22] <=1;
+                matrix_display_data[23] <=1;
+                matrix_display_data[24] <=1;
+                */
                 if (btn_confirm_pulse) begin
-                    state <= 10'd415;
+                    state <= 10'd417;
                 end
                 if (btn_return_pulse) begin
                     state <= 10'd400;
                 end
             end
             
-            10'd415: begin
-                // 将display_start变为1，开始传输
+            10'd417: begin
+                // 将display_start变为1，开始传�??
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -947,7 +1104,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd421: begin
-                // uart传入c，展示矩阵
+                // uart传入c，展示矩�??
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
                 
@@ -1022,7 +1179,7 @@ always @(posedge clk or negedge rst_n) begin
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
                         state <= 10'd425;
                     end else begin
-                        // 回到输入第二个矩阵的r，并触发倒计时
+                        // 回到输入第二个矩阵的r，并触发倒计�??
                         state <= 10'd423;
                     end
                 end
@@ -1075,7 +1232,7 @@ always @(posedge clk or negedge rst_n) begin
                 state <=10'd428;
             end
             10'd428: begin
-                // 将add_en变为1，开始加法，将加法结果接到display上
+                // 将add_en变为1，开始加法，将加法结果接到display�?
                 add_en <= 1;
                 matrix_ans_r_out <= add_r_out;
                 matrix_ans_c_out <= add_c_out;
@@ -1113,7 +1270,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd429: begin
-                // 将display_start变为1，开始传输
+                // 将display_start变为1，开始传�??
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1141,7 +1298,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd431: begin
-                // uart传入c，展示矩阵
+                // uart传入c，展示矩�??
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
 
@@ -1209,7 +1366,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd435: begin
-                // 将scalar_en变为1，开始转置，将乘法结果接到display上
+                // 将scalar_en变为1，开始转置，将乘法结果接到display�??
                 scalar_en <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1221,7 +1378,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd436: begin
-                // 将display_start变为1，开始传输
+                // 将display_start变为1，开始传�??
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1249,7 +1406,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd441: begin
-                // uart传入c，展示矩阵
+                // uart传入c，展示矩�??
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
                 
@@ -1326,7 +1483,7 @@ always @(posedge clk or negedge rst_n) begin
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
                         state <= 10'd446;
                     end else begin
-                        // 回到输入第二个矩阵的r，并触发倒计时
+                        // 回到输入第二个矩阵的r，并触发倒计�??
                         state <= 10'd443;
                     end
                 end
@@ -1378,7 +1535,7 @@ always @(posedge clk or negedge rst_n) begin
                 state <=10'd448;
             end
             10'd448: begin
-                // 将mult_en变为1，开始加法，将乘法结果接到display上
+                // 将mult_en变为1，开始加法，将乘法结果接到display�??
                 mult_en <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1390,7 +1547,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd449: begin
-                // 将display_start变为1，开始传输
+                // 将display_start变为1，开始传�??
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1416,7 +1573,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd451: begin
-                // 将conv_en变为1，开始卷积，将卷积结果接到displayer80上
+                // 将conv_en变为1，开始卷积，将卷积结果接到displayer80�??
                 conv_en <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1428,7 +1585,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd452: begin
-                // 将display_start变为1，开始传输
+                // 将display_start变为1，开始传�??
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
