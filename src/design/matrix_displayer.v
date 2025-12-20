@@ -5,55 +5,68 @@ module matrix_displayer(
     input wire rst_n,
     
     // 控制信号
-    input wire start,           // 开始显示的脉冲
-    output reg busy,            // 模块忙信号
+    input wire start,           // 保持名字不变
+    output reg busy,            // 保持名字不变
     
     // 矩阵参数输入
-    input wire [2:0] matrix_row, // 矩阵行数
-    input wire [2:0] matrix_col, // 矩阵列数
+    input wire [2:0] matrix_row,
+    input wire [2:0] matrix_col,
     
     // 来自 Storage 的 25 个数据
-    input wire [7:0] d0,  input wire [7:0] d1,  input wire [7:0] d2,  input wire [7:0] d3,  input wire [7:0] d4,
-    input wire [7:0] d5,  input wire [7:0] d6,  input wire [7:0] d7,  input wire [7:0] d8,  input wire [7:0] d9,
-    input wire [7:0] d10, input wire [7:0] d11, input wire [7:0] d12, input wire [7:0] d13, input wire [7:0] d14,
-    input wire [7:0] d15, input wire [7:0] d16, input wire [7:0] d17, input wire [7:0] d18, input wire [7:0] d19,
-    input wire [7:0] d20, input wire [7:0] d21, input wire [7:0] d22, input wire [7:0] d23, input wire [7:0] d24,
-
-    // UART TX 接口
-    output reg [7:0] tx_data,
-    output reg       tx_start,
-    input  wire      tx_busy
+    //这里必须改为 [8:0] 才能接收 405，名字和顺序严格保持不变
+    input wire [8:0] d0,  input wire [8:0] d1,  input wire [8:0] d2,  input wire [8:0] d3,  input wire [8:0] d4,
+    input wire [8:0] d5,  input wire [8:0] d6,  input wire [8:0] d7,  input wire [8:0] d8,  input wire [8:0] d9,
+    input wire [8:0] d10, input wire [8:0] d11, input wire [8:0] d12, input wire [8:0] d13, input wire [8:0] d14,
+    input wire [8:0] d15, input wire [8:0] d16, input wire [8:0] d17, input wire [8:0] d18, input wire [8:0] d19,
+    input wire [8:0] d20, input wire [8:0] d21, input wire [8:0] d22, input wire [8:0] d23, input wire [8:0] d24,
+    
+    // UART 接口 
+    input wire       tx_busy,   
+    output reg       tx_start,  
+    output reg [7:0] tx_data    // 推测：配套的数据端口名
 );
 
-    // 状态机定义
+    // 状态定义
     localparam S_IDLE           = 0;
-    localparam S_PREPARE        = 1;
-    localparam S_SEND_DIGIT     = 2;
-    localparam S_WAIT_DIGIT     = 3; // 等待数字开始发送(Busy变高)
-    localparam S_SEND_SEP       = 4;
-    localparam S_WAIT_SEP_START = 5; // 等待分隔符开始发送(Busy变高)
-    localparam S_WAIT_SEP       = 6; // 等待分隔符发送完毕(Busy变低)
-    localparam S_DONE           = 7; 
-    localparam S_WAIT_RELEASE   = 8; 
-    
-    reg [3:0] state;
-    reg [2:0] r_cnt; // 行计数
-    reg [2:0] c_cnt; // 列计数
-    
-    // 内部数据缓存（防止显示过程中 storage 变了）
-    reg [7:0] data_cache [24:0]; 
-    reg [7:0] current_val;
+    localparam S_PREPARE_DATA   = 1;
+    localparam S_CALC_DIGITS    = 2; 
+    localparam S_SEND_CHAR_1    = 3; 
+    localparam S_SEND_CHAR_2    = 4; 
+    localparam S_SEND_CHAR_3    = 5; 
+    localparam S_WAIT_UART      = 6; 
+    localparam S_SEND_SEP       = 7; 
+    localparam S_CHECK_NEXT     = 8; 
+    localparam S_DONE           = 9;
+    localparam S_WAIT_RELEASE   = 10;
 
-    // 数据选择逻辑：根据 (r, c) 选出对应的数据
-    wire [4:0] current_index = r_cnt * matrix_col + c_cnt;
+    reg [3:0] state, next_state_after_wait;
+    reg [2:0] r_cnt;
+    reg [2:0] c_cnt;
+    
+    reg [8:0] current_data; // 改为 9 位
+    
+    // 拆分数字用的寄存器
+    reg [3:0] digit_hundreds;
+    reg [3:0] digit_tens;
+    reg [3:0] digit_units;
+    
+    localparam ASCII_0     = 8'd48;
+    localparam ASCII_SPACE = 8'd32;
+    localparam ASCII_LF    = 8'd10; 
 
-    // 整数转ASCII
-    function [7:0] int2ascii;
-        input [7:0] val;
-        begin
-            int2ascii = val + "0"; // 简单处理0-9
-        end
-    endfunction
+    // 数据选择 logic
+    reg [4:0] idx; 
+    always @(*) begin
+        idx = (r_cnt * 5) + c_cnt; 
+        case(idx)
+            5'd0:  current_data = d0;  5'd1:  current_data = d1;  5'd2:  current_data = d2;  5'd3:  current_data = d3;  5'd4:  current_data = d4;
+            5'd5:  current_data = d5;  5'd6:  current_data = d6;  5'd7:  current_data = d7;  5'd8:  current_data = d8;  5'd9:  current_data = d9;
+            5'd10: current_data = d10; 5'd11: current_data = d11; 5'd12: current_data = d12; 5'd13: current_data = d13; 5'd14: current_data = d14;
+            5'd15: current_data = d15; 5'd16: current_data = d16; 5'd17: current_data = d17; 5'd18: current_data = d18; 5'd19: current_data = d19;
+            5'd20: current_data = d20; 5'd21: current_data = d21; 5'd22: current_data = d22; 5'd23: current_data = d23; 5'd24: current_data = d24;
+            default: current_data = 9'd0;
+        endcase
+    end
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -64,97 +77,105 @@ module matrix_displayer(
             r_cnt <= 0;
             c_cnt <= 0;
         end else begin
-            // 默认拉低 Start (脉冲形式)
-            // 注意：在状态机特定状态下会将其置1，这里只是为了防止未赋值时的推断
-            // 实际控制权在 case 语句中
-            
             case (state)
                 S_IDLE: begin
                     busy <= 0;
-                    tx_start <= 0;
                     if (start) begin
-                        // 边界检查
-                        if (matrix_row == 0 || matrix_col == 0) begin
-                            state <= S_IDLE; 
-                        end else begin
-                            busy <= 1;
-                            r_cnt <= 0;
-                            c_cnt <= 0;
-                            state <= S_PREPARE;
-                        end
+                        busy <= 1;
+                        r_cnt <= 0;
+                        c_cnt <= 0;
+                        state <= S_PREPARE_DATA;
                     end
                 end
 
-                S_PREPARE: begin
-                    // 锁存数据
-                    data_cache[0]<=d0;   data_cache[1]<=d1;   data_cache[2]<=d2;   data_cache[3]<=d3;   data_cache[4]<=d4;
-                    data_cache[5]<=d5;   data_cache[6]<=d6;   data_cache[7]<=d7;   data_cache[8]<=d8;   data_cache[9]<=d9;
-                    data_cache[10]<=d10; data_cache[11]<=d11; data_cache[12]<=d12; data_cache[13]<=d13; data_cache[14]<=d14;
-                    data_cache[15]<=d15; data_cache[16]<=d16; data_cache[17]<=d17; data_cache[18]<=d18; data_cache[19]<=d19;
-                    data_cache[20]<=d20; data_cache[21]<=d21; data_cache[22]<=d22; data_cache[23]<=d23; data_cache[24]<=d24;
-                    
-                    r_cnt <= 0;
-                    c_cnt <= 0;
-                    state <= S_SEND_DIGIT;
+                S_PREPARE_DATA: begin
+                    state <= S_CALC_DIGITS;
                 end
 
-                S_SEND_DIGIT: begin
+                S_CALC_DIGITS: begin
+                    // 拆分 (0-511)
+                    digit_hundreds <= current_data / 100;
+                    digit_tens     <= (current_data % 100) / 10;
+                    digit_units    <= current_data % 10;
+                    state <= S_SEND_CHAR_1;
+                end
+
+                // --- 左对齐逻辑 ---
+                
+                // 1. 发第一个字符
+                S_SEND_CHAR_1: begin
                     if (!tx_busy) begin
-                        // 1. 发送数字
-                        current_val = data_cache[current_index];
-                        tx_data <= int2ascii(current_val);
                         tx_start <= 1;
-                        state <= S_WAIT_DIGIT; // 去等待它变忙
+                        if (current_data >= 100)      tx_data <= digit_hundreds + ASCII_0; // 405 -> '4'
+                        else if (current_data >= 10)  tx_data <= digit_tens + ASCII_0;     // 45  -> '4'
+                        else                          tx_data <= digit_units + ASCII_0;    // 5   -> '5'
+                        
+                        next_state_after_wait <= S_SEND_CHAR_2;
+                        state <= S_WAIT_UART;
                     end
                 end
 
-                S_WAIT_DIGIT: begin
-                    tx_start <= 1'b0; // 撤销 Start 信号
-                    // 关键修复：必须等待 UART 确实开始工作了(Busy变高)
-                    // 否则如果跑太快，直接跳到下一个状态会误判 Busy 为低
-                    if (tx_busy == 1'b1) begin
-                        state <= S_SEND_SEP;
+                // 2. 发第二个字符
+                S_SEND_CHAR_2: begin
+                    if (!tx_busy) begin 
+                        tx_start <= 1;
+                        if (current_data >= 100)      tx_data <= digit_tens + ASCII_0;     // 405 -> '0'
+                        else if (current_data >= 10)  tx_data <= digit_units + ASCII_0;    // 45  -> '5'
+                        else                          tx_data <= ASCII_SPACE;              // 5   -> ' ' (补空)
+                        
+                        next_state_after_wait <= S_SEND_CHAR_3;
+                        state <= S_WAIT_UART;
+                    end
+                end
+
+                // 3. 发第三个字符
+                S_SEND_CHAR_3: begin
+                    if (!tx_busy) begin
+                        tx_start <= 1;
+                        if (current_data >= 100)      tx_data <= digit_units + ASCII_0;    // 405 -> '5'
+                        else                          tx_data <= ASCII_SPACE;              // 其他补空
+                        
+                        next_state_after_wait <= S_SEND_SEP;
+                        state <= S_WAIT_UART;
+                    end
+                end
+
+                S_WAIT_UART: begin
+                    tx_start <= 0;
+                    // 简单握手：只要忙了或者已经不忙了(脉冲发完)就继续
+                    // 这里为了稳妥，配合你的 top 逻辑，等待 busy 过去
+                    // 假设 UART 模块接收到 start 后会立刻拉高 busy
+                    if (tx_busy) begin
+                        // wait
+                    end else begin
+                        state <= next_state_after_wait;
                     end
                 end
 
                 S_SEND_SEP: begin
-                
-                    if (!tx_busy) begin // 等待数字发送结束
-                        // 2. 发送分隔符
-                        if (c_cnt == matrix_col - 1) begin
-                            tx_data <= 8'h0A; // 换行
-                        end else begin
-                            tx_data <= 8'h20; // 空格
-                        end
+                    if (!tx_busy) begin
                         tx_start <= 1;
-                        state <= S_WAIT_SEP_START; // 去等待它变忙
+                        if (c_cnt == matrix_col - 1) 
+                            tx_data <= ASCII_LF; // 换行
+                        else 
+                            tx_data <= ASCII_SPACE; // 空格
+                        
+                        next_state_after_wait <= S_CHECK_NEXT;
+                        state <= S_WAIT_UART;
                     end
                 end
 
-                S_WAIT_SEP_START: begin
-                    tx_start <= 1'b0;
-                    // 关键修复：确保 UART 已经捕获到分隔符的发送请求
-                    if (tx_busy == 1'b1) begin
-                        state <= S_WAIT_SEP;
-                    end
-                end
-
-                S_WAIT_SEP: begin
-                    tx_start <= 1'b0;
-                    if (!tx_busy) begin // 等待分隔符发送完毕
-                        // 更新计数器
-                        if (c_cnt == matrix_col - 1) begin
-                            c_cnt <= 0;
-                            if (r_cnt == matrix_row - 1) begin
-                                state <= S_DONE;
-                            end else begin
-                                r_cnt <= r_cnt + 1;
-                                state <= S_SEND_DIGIT;
-                            end
-                        end else begin
-                            c_cnt <= c_cnt + 1;
-                            state <= S_SEND_DIGIT;
+                S_CHECK_NEXT: begin
+                    if (c_cnt == matrix_col - 1) begin
+                        c_cnt <= 0;
+                        if (r_cnt == matrix_row - 1) state <= S_DONE;
+                        else begin
+                            r_cnt <= r_cnt + 1;
+                            state <= S_PREPARE_DATA;
                         end
+                    end else begin
+                        c_cnt <= c_cnt + 1;
+                        state <= S_PREPARE_DATA;
                     end
                 end
 
@@ -164,10 +185,7 @@ module matrix_displayer(
                 end
 
                 S_WAIT_RELEASE: begin
-                    if (start == 1'b0) begin
-                        //等待 Top 模块撤销 Start 信号，防止重复触发
-                        state <= S_IDLE;
-                    end
+                    if (start == 0) state <= S_IDLE;
                 end
                 
                 default: state <= S_IDLE;
