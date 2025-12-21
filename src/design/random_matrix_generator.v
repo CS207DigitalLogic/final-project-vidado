@@ -71,7 +71,6 @@ random_num_generator #(
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         updating <= 1'b0;
-        isComplete <= 0;
     end else if (update_en && !updating && !isComplete) begin  // 仅在"使能且未刷新"时启动
         updating <= 1'b1;
     end else if (cnt == 24) begin              // 刷新到最后一个元素，停止
@@ -162,6 +161,7 @@ end
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         update_done <= 1'b0;
+        isComplete <= 0;
     end else if (cnt == 24 && updating) begin  // 最后一个元素刷新完成
         update_done <= 1'b1;
         isComplete <= 1;

@@ -1,5 +1,3 @@
-`timescale 1ns / 1ps
-
 module matrix_displayer(
     input wire clk,
     input wire rst_n,
@@ -56,46 +54,28 @@ module matrix_displayer(
     // 数据选择 logic
     reg [4:0] idx;
 
-    integer calc_temp;
-
     always @(*) begin
-        // 1. 使用 integer 进行计算
-        // 此时 r_cnt 和 matrix_col 会先变为 32 位整数再相乘
-        // 绝对保证 2 * 4 = 8，而不是 0
-        calc_temp = r_cnt * matrix_col + c_cnt;
+        // ================= 修改重点 =================
+        // 原代码：idx = (r_cnt * 5) + c_cnt; 
+        // 这种写法假设数据总是稀疏地存在 5x5 的格子里（如第一行在0-4，第二行在5-9）。
+        // 但如果你的运算结果是紧凑存储的（例如2x2矩阵存在 d0, d1, d2, d3），则需要改为：
         
-        // 2. 将结果截取低 5 位赋值给 idx
-        idx = calc_temp[4:0];
+        idx = (r_cnt * matrix_col) + c_cnt; 
+        
+        // 注意：这要求 top 模块传入的 matrix_col 必须是当前矩阵的真实列数。
+        // ===========================================
 
-        // 3. 数据选择逻辑（保持不变）
-
-        // --- 3. 数据选择 ---
         case(idx)
             5'd0:  current_data = d0;
-            5'd1:  current_data = d1;
-            5'd2:  current_data = d2;
-            5'd3:  current_data = d3;
-            5'd4:  current_data = d4;
-            5'd5:  current_data = d5;
-            5'd6:  current_data = d6;
-            5'd7:  current_data = d7;
-            5'd8:  current_data = d8; 
+            5'd1:  current_data = d1;  5'd2:  current_data = d2;  5'd3:  current_data = d3;  5'd4:  current_data = d4;
+            5'd5:  current_data = d5;  5'd6:  current_data = d6;  5'd7:  current_data = d7;  5'd8:  current_data = d8;
             5'd9:  current_data = d9;
-            5'd10: current_data = d10;
-            5'd11: current_data = d11;
-            5'd12: current_data = d12;
-            5'd13: current_data = d13;
-            5'd14: current_data = d14;
-            5'd15: current_data = d15;
-            5'd16: current_data = d16;
-            5'd17: current_data = d17;
-            5'd18: current_data = d18;
-            5'd19: current_data = d19;
-            5'd20: current_data = d20;
-            5'd21: current_data = d21;
-            5'd22: current_data = d22;
-            5'd23: current_data = d23;
-            5'd24: current_data = d24;
+            5'd10: current_data = d10; 5'd11: current_data = d11; 5'd12: current_data = d12;
+            5'd13: current_data = d13; 5'd14: current_data = d14;
+            5'd15: current_data = d15; 5'd16: current_data = d16; 5'd17: current_data = d17;
+            5'd18: current_data = d18; 5'd19: current_data = d19;
+            5'd20: current_data = d20; 5'd21: current_data = d21; 5'd22: current_data = d22;
+            5'd23: current_data = d23; 5'd24: current_data = d24;
             default: current_data = 9'd0;
         endcase
     end
