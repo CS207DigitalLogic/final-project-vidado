@@ -645,12 +645,12 @@ always @(posedge clk or negedge rst_n) begin
         menuState <= state;
         case(state)
             10'd000: begin
-                // 初始状�?�操作（留白�?
+                // 初始状???操作（留白??
                 led <= 14'b00_0000_0000_1100;
                 
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
-                        3'b001: state <= 10'd100;  // 模式1输入并存�?
+                        3'b001: state <= 10'd100;  // 模式1输入并存??
                         3'b010: state <= 10'd200;  // 模式2随机生成
                         3'b011: state <= 10'd300;  // 模式3矩阵展示
                         3'b100: state <= 10'd400;  // 模式4运算
@@ -922,6 +922,7 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd510;
                 end
                 if (btn_confirm_pulse) begin
@@ -929,12 +930,13 @@ always @(posedge clk or negedge rst_n) begin
                     state <= 10'd411;
                 end
                 if (btn_return_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
             
             10'd411: begin
-                // uart传入c，展示矩??
+                // uart传入c，展示矩阵
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
                 req_scale_col <= matrix_opr_1_c1;
@@ -952,13 +954,14 @@ always @(posedge clk or negedge rst_n) begin
             10'd412: begin
                 // uart传入req_index，将指定矩阵传入转置模块
                 rx_buf <= rx_data;
-                req_index <= rx_buf;
+                req_index <= rx_buf-"0";
 
                 if (btn_confirm_pulse) begin
                     start_search_display_pulse <= 1'b0;
                     state <= 10'd413;
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1052,27 +1055,35 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd420: begin
+                // 展示矩阵
+                start_info_display_pulse<=1'd1;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd520;
                 end
                 if (btn_confirm_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd421;
                 end
                 if (btn_return_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
             
             10'd421: begin
-                // uart传入c，展示矩???
+                // uart传入c，展示矩阵
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
+                req_scale_col <= matrix_opr_1_c1;
+                req_scale_row <= matrix_opr_1_r1;
                 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b1;
                     state <= 10'd422;
                 end
                 if (btn_return_pulse) begin
@@ -1081,16 +1092,16 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd422: begin
+                // uart传入req_index
                 rx_buf <= rx_data;
-                req_scale_col<=matrix_opr_1_c1;
-                req_scale_row<=matrix_opr_1_r1;
-                req_index<=req_index;
-                // uart传入req_index，将指定矩阵传入加法模块1端口
+                req_index <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd423;
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1138,7 +1149,7 @@ always @(posedge clk or negedge rst_n) begin
             10'd425: begin
                 // uart传入c
                 rx_buf <= rx_data;
-                matrix_opr_2_c2 <=rx_buf-"0";
+                matrix_opr_2_c2 <= rx_buf-"0";
                 if (btn_confirm_pulse) begin
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
                         state <= 10'd426;
@@ -1153,11 +1164,11 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd426: begin
-                rx_buf <= rx_data;
-                req_index <=rx_buf-"0";
-                req_scale_col<=matrix_opr_2_c2;
-                req_scale_row<=matrix_opr_2_r2;
                 // uart传入req_index，将指定矩阵传入加法模块2端口
+                rx_buf <= rx_data;
+                req_index <= rx_buf-"0";
+                req_scale_col<= matrix_opr_2_c2;
+                req_scale_row<= matrix_opr_2_r2;
                
                 if (btn_confirm_pulse) begin
                     state <= 10'd427;
@@ -1195,7 +1206,7 @@ always @(posedge clk or negedge rst_n) begin
                 state <=10'd428;
             end
             10'd428: begin
-                // 将add_en变为1，开始加法，将加法结果接到display??
+                // 将add_en变为1，开始加法，将加法结果接到display
                 add_en <= 1;
                 display_row <= add_r_out;
                 display_col <= add_c_out;
@@ -1233,7 +1244,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd429: begin
-                // 将display_start变为1，开始传???
+                // 将display_start变为1，开始传输
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1245,17 +1256,22 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd430: begin
+                // 展示矩阵
+                start_info_display_pulse<=1'd1;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd530;
                 end
                 if (btn_confirm_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd431;
                 end
                 if (btn_return_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1264,8 +1280,11 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c，展示矩???
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
+                req_scale_col <= matrix_opr_1_c1;
+                req_scale_row <= matrix_opr_1_r1;
 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b1;
                     state <= 10'd432;
                 end
                 if (btn_return_pulse) begin
@@ -1277,13 +1296,13 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入乘法模块
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"0";
-                req_scale_col<=matrix_opr_1_c1;
-                req_scale_row<=matrix_opr_1_r1;
 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd433;
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1380,27 +1399,35 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd440: begin
+                // 展示矩阵
+                start_info_display_pulse<=1'd1;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd540;
                 end
                 if (btn_confirm_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd441;
                 end
                 if (btn_return_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
             
             10'd441: begin
-                // uart传入c，展示矩???
+                // uart传入c，展示矩阵
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
+                req_scale_col <= matrix_opr_1_c1;
+                req_scale_row <= matrix_opr_1_r1;
                 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b1;
                     state <= 10'd442;
                 end
                 if (btn_return_pulse) begin
@@ -1412,13 +1439,13 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块1端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"0";
-                req_scale_col<=matrix_opr_1_c1;
-                req_scale_row<=matrix_opr_1_r1;
                 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd443;
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1454,8 +1481,7 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
-                req_scale_col<=matrix_opr_2_c2;
-                req_scale_row<=matrix_opr_2_r2;
+
                 if (btn_confirm_pulse) begin
                     state <= 10'd445;
                 end
@@ -1468,6 +1494,8 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
+                req_scale_row <= matrix_opr_2_r2;
+                req_scale_col <= matrix_opr_2_c2;
                 
                 if (btn_confirm_pulse) begin
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
@@ -1486,8 +1514,6 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"0";
-                req_scale_col<=matrix_opr_2_c2;
-                req_scale_row<=matrix_opr_2_r2;
 
                 if (btn_confirm_pulse) begin
                     state <= 10'd447;
@@ -1576,32 +1602,69 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd450: begin
-                // 用户输入3*3矩阵
+                // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
+                rx_buf <= rx_data;
+                req_index <= rx_buf-"0";
+                req_scale_col <= 2'd3;
+                req_scale_row <= 2'd3;
+                start_search_display_pulse <= 1'b1;
                 
                 if (btn_random_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd550;
                 end
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd451;
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
             
             10'd451: begin
+                matrix_opr_1[0] <= storage_output_data[0];
+                matrix_opr_1[1] <= storage_output_data[1];  
+                matrix_opr_1[2] <= storage_output_data[2];
+                matrix_opr_1[3] <= storage_output_data[3];
+                matrix_opr_1[4] <= storage_output_data[4];
+                matrix_opr_1[5] <= storage_output_data[5];
+                matrix_opr_1[6] <= storage_output_data[6];
+                matrix_opr_1[7] <= storage_output_data[7];
+                matrix_opr_1[8] <= storage_output_data[8];
+                matrix_opr_1[9] <= storage_output_data[9];
+                matrix_opr_1[10] <= storage_output_data[10];
+                matrix_opr_1[11] <= storage_output_data[11];
+                matrix_opr_1[12] <= storage_output_data[12];
+                matrix_opr_1[13] <= storage_output_data[13];
+                matrix_opr_1[14] <= storage_output_data[14];
+                matrix_opr_1[15] <= storage_output_data[15];
+                matrix_opr_1[16] <= storage_output_data[16];
+                matrix_opr_1[17] <= storage_output_data[17];
+                matrix_opr_1[18] <= storage_output_data[18];
+                matrix_opr_1[19] <= storage_output_data[19];
+                matrix_opr_1[20] <= storage_output_data[20];
+                matrix_opr_1[21] <= storage_output_data[21];
+                matrix_opr_1[22] <= storage_output_data[22];
+                matrix_opr_1[23] <= storage_output_data[23];
+                matrix_opr_1[24] <= storage_output_data[24];
+                state <= 10'd452;
+            end
+            
+            10'd452: begin
                 // 将conv_en变为1，开始卷积，将卷积结果接到displayer80???
                 conv_en <= 1;
                 
                 if (btn_confirm_pulse) begin
-                    state <= 10'd452;
+                    state <= 10'd453;
                 end
                 if (btn_return_pulse) begin
                     state <= 10'd400;
                 end
             end
             
-            10'd452: begin
+            10'd453: begin
                 // 将display_start变为1，开始传???
                 display_start <= 1;
                 
