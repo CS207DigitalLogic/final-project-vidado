@@ -973,6 +973,9 @@ always @(posedge clk or negedge rst_n) begin
                 led <= 14'b00_0000_0000_0000;
                 
                 if (btn_confirm_pulse) begin
+                    display_start <= 1'b0;
+                    start_info_display_pulse <= 1'd0;
+                    start_search_display_pulse <= 1'b0;
                     case(sw_mode)
                         3'b001: state <= 10'd410;  // 模式1矩阵转置
                         3'b010: state <= 10'd420;  // 模式2矩阵加法
@@ -983,6 +986,9 @@ always @(posedge clk or negedge rst_n) begin
                 end
             
                 if (btn_return_pulse) begin
+                    display_start <= 1'b0;
+                    start_info_display_pulse <= 1'd0;
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd000;
                 end
             end
@@ -1167,13 +1173,14 @@ always @(posedge clk or negedge rst_n) begin
             10'd420: begin
                 // 展示矩阵
                 start_info_display_pulse<=1'd1;
+                rand_en <= 1'b1;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
-                    rand_en <= 1'b1;
+                    req_index <= rand_num - 3'b1;
                     state <= 10'd520;
                 end
                 if (btn_confirm_pulse) begin
@@ -1217,6 +1224,37 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd423:begin
+                // 准备展示选定的矩阵
+                matrix_opr_1_r1 <= req_scale_row;
+                matrix_opr_1_c1 <= req_scale_col;
+                display_row <= req_scale_row;
+                display_col <= req_scale_col;
+                matrix_display_data[0]  <= storage_output_data[0];
+                matrix_display_data[1]  <= storage_output_data[1];
+                matrix_display_data[2]  <= storage_output_data[2];
+                matrix_display_data[3]  <= storage_output_data[3];
+                matrix_display_data[4]  <= storage_output_data[4];
+                matrix_display_data[5]  <= storage_output_data[5];
+                matrix_display_data[6]  <= storage_output_data[6];
+                matrix_display_data[7]  <= storage_output_data[7];
+                matrix_display_data[8]  <= storage_output_data[8];
+                matrix_display_data[9]  <= storage_output_data[9];
+                matrix_display_data[10] <= storage_output_data[10];
+                matrix_display_data[11] <= storage_output_data[11];
+                matrix_display_data[12] <= storage_output_data[12];
+                matrix_display_data[13] <= storage_output_data[13];
+                matrix_display_data[14] <= storage_output_data[14];
+                matrix_display_data[15] <= storage_output_data[15];
+                matrix_display_data[16] <= storage_output_data[16];
+                matrix_display_data[17] <= storage_output_data[17];
+                matrix_display_data[18] <= storage_output_data[18];
+                matrix_display_data[19] <= storage_output_data[19];
+                matrix_display_data[20] <= storage_output_data[20];
+                matrix_display_data[21] <= storage_output_data[21];
+                matrix_display_data[22] <= storage_output_data[22];
+                matrix_display_data[23] <= storage_output_data[23];
+                matrix_display_data[24] <= storage_output_data[24];
+                // 传入到加法矩阵1
                 matrix_opr_1[0] <= storage_output_data[0];
                 matrix_opr_1[1] <= storage_output_data[1];  
                 matrix_opr_1[2] <= storage_output_data[2];
@@ -1242,7 +1280,10 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
-                state <=10'd424;
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b1;
+                    state <= 10'd424; 
+                end
             end
             10'd424: begin
                 // uart传入r
@@ -1250,9 +1291,11 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_2_r2 <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
+                    display_start <= 1'b0;
                     state <= 10'd425;
                 end
                 if (btn_return_pulse) begin
+                    display_start <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1261,14 +1304,11 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
+                
                 if (btn_confirm_pulse) begin
-                    if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
-                        state <= 10'd426;
-                    end else begin
-                        // 回到输入第二个矩阵的r，并触发倒计???
-                        state <= 10'd424;
-                    end
+                    state <= 10'd426;
                 end
+                
                 if (btn_return_pulse) begin
                     state <= 10'd400;
                 end
@@ -1282,13 +1322,49 @@ always @(posedge clk or negedge rst_n) begin
                 req_scale_row<= matrix_opr_2_r2;
                
                 if (btn_confirm_pulse) begin
-                    state <= 10'd427;
+                    if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
+                        state <= 10'd427;
+                    end else begin
+                        // 回到输入第二个矩阵的r，并触发倒计???
+                        state <= 10'd424;
+                    end
                 end
                 if (btn_return_pulse) begin
                     state <= 10'd400;
                 end
             end
             10'd427: begin
+                // 准备展示选定的矩阵
+                matrix_opr_2_r2 <= req_scale_row;
+                matrix_opr_2_c2 <= req_scale_col;
+                display_row <= req_scale_row;
+                display_col <= req_scale_col;
+                matrix_display_data[0]  <= storage_output_data[0];
+                matrix_display_data[1]  <= storage_output_data[1];
+                matrix_display_data[2]  <= storage_output_data[2];
+                matrix_display_data[3]  <= storage_output_data[3];
+                matrix_display_data[4]  <= storage_output_data[4];
+                matrix_display_data[5]  <= storage_output_data[5];
+                matrix_display_data[6]  <= storage_output_data[6];
+                matrix_display_data[7]  <= storage_output_data[7];
+                matrix_display_data[8]  <= storage_output_data[8];
+                matrix_display_data[9]  <= storage_output_data[9];
+                matrix_display_data[10] <= storage_output_data[10];
+                matrix_display_data[11] <= storage_output_data[11];
+                matrix_display_data[12] <= storage_output_data[12];
+                matrix_display_data[13] <= storage_output_data[13];
+                matrix_display_data[14] <= storage_output_data[14];
+                matrix_display_data[15] <= storage_output_data[15];
+                matrix_display_data[16] <= storage_output_data[16];
+                matrix_display_data[17] <= storage_output_data[17];
+                matrix_display_data[18] <= storage_output_data[18];
+                matrix_display_data[19] <= storage_output_data[19];
+                matrix_display_data[20] <= storage_output_data[20];
+                matrix_display_data[21] <= storage_output_data[21];
+                matrix_display_data[22] <= storage_output_data[22];
+                matrix_display_data[23] <= storage_output_data[23];
+                matrix_display_data[24] <= storage_output_data[24];
+                // 传入到加法矩阵2
                 matrix_opr_2[0] <= storage_output_data[0];
                 matrix_opr_2[1] <= storage_output_data[1];  
                 matrix_opr_2[2] <= storage_output_data[2];
@@ -1314,9 +1390,22 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_2[22] <= storage_output_data[22];
                 matrix_opr_2[23] <= storage_output_data[23];
                 matrix_opr_2[24] <= storage_output_data[24];
-                state <=10'd428;
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b1;
+                    state <=10'd428;
+                end
             end
+            
             10'd428: begin
+                
+                if (btn_confirm_pulse) begin
+                    // 将display_start变为0
+                    display_start <= 0;
+                    state <= 10'd429;
+                end
+            end
+            
+            10'd429: begin
                 // 将add_en变为1，开始加法，将加法结果接到display
                 add_en <= 1;
                 display_row <= add_r_out;
@@ -1347,20 +1436,7 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_display_data[23] <=add_res[23];
                 matrix_display_data[24] <=add_res[24];
                 if (btn_confirm_pulse) begin
-                    state <= 10'd429;
-                end
-                if (btn_return_pulse) begin
-                    state <= 10'd400;
-                end
-            end
-            
-            10'd429: begin
-                // 将display_start变为1，开始传输
-                display_start <= 1;
-                
-                if (btn_confirm_pulse) begin
-                    // 将display_start和add_en变为0
-                    display_start <= 0;
+                    display_start <= 1'b1;
                     add_en <= 0;
                     state <= 10'd400;
                 end
@@ -1369,13 +1445,14 @@ always @(posedge clk or negedge rst_n) begin
             10'd430: begin
                 // 展示矩阵
                 start_info_display_pulse<=1'd1;
+                rand_en <= 1'b1;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
-                    rand_en <= 1'b1;
+                    req_index <= rand_num - 3'b1;
                     state <= 10'd530;
                 end
                 if (btn_confirm_pulse) begin
@@ -1418,7 +1495,39 @@ always @(posedge clk or negedge rst_n) begin
                     state <= 10'd400;
                 end
             end
+            
             10'd433: begin
+                // 准备展示选定的矩阵
+                matrix_opr_1_r1 <= req_scale_row;
+                matrix_opr_1_c1 <= req_scale_col;
+                display_row <= req_scale_row;
+                display_col <= req_scale_col;
+                matrix_display_data[0]  <= storage_output_data[0];
+                matrix_display_data[1]  <= storage_output_data[1];
+                matrix_display_data[2]  <= storage_output_data[2];
+                matrix_display_data[3]  <= storage_output_data[3];
+                matrix_display_data[4]  <= storage_output_data[4];
+                matrix_display_data[5]  <= storage_output_data[5];
+                matrix_display_data[6]  <= storage_output_data[6];
+                matrix_display_data[7]  <= storage_output_data[7];
+                matrix_display_data[8]  <= storage_output_data[8];
+                matrix_display_data[9]  <= storage_output_data[9];
+                matrix_display_data[10] <= storage_output_data[10];
+                matrix_display_data[11] <= storage_output_data[11];
+                matrix_display_data[12] <= storage_output_data[12];
+                matrix_display_data[13] <= storage_output_data[13];
+                matrix_display_data[14] <= storage_output_data[14];
+                matrix_display_data[15] <= storage_output_data[15];
+                matrix_display_data[16] <= storage_output_data[16];
+                matrix_display_data[17] <= storage_output_data[17];
+                matrix_display_data[18] <= storage_output_data[18];
+                matrix_display_data[19] <= storage_output_data[19];
+                matrix_display_data[20] <= storage_output_data[20];
+                matrix_display_data[21] <= storage_output_data[21];
+                matrix_display_data[22] <= storage_output_data[22];
+                matrix_display_data[23] <= storage_output_data[23];
+                matrix_display_data[24] <= storage_output_data[24];
+                // 传输矩阵元素
                 matrix_opr_1[0] <= storage_output_data[0];
                 matrix_opr_1[1] <= storage_output_data[1];  
                 matrix_opr_1[2] <= storage_output_data[2];
@@ -1444,17 +1553,23 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
-                state <=10'd434;
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b1;
+                    state <=10'd434;
+                end
             end
+            
             10'd434: begin
                 // uart传入scalar，将标量传入乘法模块
                 rx_buf <= rx_data;
                 scalar_value <= rx_buf-"0";
                 
                 if (btn_confirm_pulse) begin
+                    display_start <= 1'b0;
                     state <= 10'd435;
                 end
                 if (btn_return_pulse) begin
+                    display_start <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1513,13 +1628,14 @@ always @(posedge clk or negedge rst_n) begin
             10'd440: begin
                 // 展示矩阵
                 start_info_display_pulse<=1'd1;
+                rand_en <= 1'b1;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
-                    rand_en <= 1'b1;
+                    req_index <= rand_num - 3'b1;
                     state <= 10'd540;
                 end
                 if (btn_confirm_pulse) begin
@@ -1563,6 +1679,37 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd443: begin
+                // 准备展示选定的矩阵
+                matrix_opr_1_r1 <= req_scale_row;
+                matrix_opr_1_c1 <= req_scale_col;
+                display_row <= req_scale_row;
+                display_col <= req_scale_col;
+                matrix_display_data[0]  <= storage_output_data[0];
+                matrix_display_data[1]  <= storage_output_data[1];
+                matrix_display_data[2]  <= storage_output_data[2];
+                matrix_display_data[3]  <= storage_output_data[3];
+                matrix_display_data[4]  <= storage_output_data[4];
+                matrix_display_data[5]  <= storage_output_data[5];
+                matrix_display_data[6]  <= storage_output_data[6];
+                matrix_display_data[7]  <= storage_output_data[7];
+                matrix_display_data[8]  <= storage_output_data[8];
+                matrix_display_data[9]  <= storage_output_data[9];
+                matrix_display_data[10] <= storage_output_data[10];
+                matrix_display_data[11] <= storage_output_data[11];
+                matrix_display_data[12] <= storage_output_data[12];
+                matrix_display_data[13] <= storage_output_data[13];
+                matrix_display_data[14] <= storage_output_data[14];
+                matrix_display_data[15] <= storage_output_data[15];
+                matrix_display_data[16] <= storage_output_data[16];
+                matrix_display_data[17] <= storage_output_data[17];
+                matrix_display_data[18] <= storage_output_data[18];
+                matrix_display_data[19] <= storage_output_data[19];
+                matrix_display_data[20] <= storage_output_data[20];
+                matrix_display_data[21] <= storage_output_data[21];
+                matrix_display_data[22] <= storage_output_data[22];
+                matrix_display_data[23] <= storage_output_data[23];
+                matrix_display_data[24] <= storage_output_data[24];
+                // 传入到乘法矩阵1
                 matrix_opr_1[0] <= storage_output_data[0];
                 matrix_opr_1[1] <= storage_output_data[1];  
                 matrix_opr_1[2] <= storage_output_data[2];
@@ -1588,17 +1735,23 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
-                state <=10'd444;
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b1;
+                    state <= 10'd444; 
+                end
             end
+            
             10'd444: begin
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
 
                 if (btn_confirm_pulse) begin
+                    display_start <= 1'b0;
                     state <= 10'd445;
                 end
                 if (btn_return_pulse) begin
+                    display_start <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1607,16 +1760,9 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
-                req_scale_row <= matrix_opr_2_r2;
-                req_scale_col <= matrix_opr_2_c2;
-                
+
                 if (btn_confirm_pulse) begin
-                    if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
-                        state <= 10'd446;
-                    end else begin
-                        // 回到输入第二个矩阵的r，并触发倒计???
-                        state <= 10'd443;
-                    end
+                    state <= 10'd446;
                 end
                 if (btn_return_pulse) begin
                     state <= 10'd400;
@@ -1627,15 +1773,53 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"0";
-
+                req_scale_row <= matrix_opr_2_r2;
+                req_scale_col <= matrix_opr_2_c2;
+                
                 if (btn_confirm_pulse) begin
-                    state <= 10'd447;
+                    if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
+                        state <= 10'd447;
+                    end else begin
+                        // 回到输入第二个矩阵的r，并触发倒计???
+                        state <= 10'd444;
+                    end
                 end
                 if (btn_return_pulse) begin
                     state <= 10'd400;
                 end
             end
             10'd447: begin
+                // 准备展示选定的矩阵
+                matrix_opr_2_r2 <= req_scale_row;
+                matrix_opr_2_c2 <= req_scale_col;
+                display_row <= req_scale_row;
+                display_col <= req_scale_col;
+                matrix_display_data[0]  <= storage_output_data[0];
+                matrix_display_data[1]  <= storage_output_data[1];
+                matrix_display_data[2]  <= storage_output_data[2];
+                matrix_display_data[3]  <= storage_output_data[3];
+                matrix_display_data[4]  <= storage_output_data[4];
+                matrix_display_data[5]  <= storage_output_data[5];
+                matrix_display_data[6]  <= storage_output_data[6];
+                matrix_display_data[7]  <= storage_output_data[7];
+                matrix_display_data[8]  <= storage_output_data[8];
+                matrix_display_data[9]  <= storage_output_data[9];
+                matrix_display_data[10] <= storage_output_data[10];
+                matrix_display_data[11] <= storage_output_data[11];
+                matrix_display_data[12] <= storage_output_data[12];
+                matrix_display_data[13] <= storage_output_data[13];
+                matrix_display_data[14] <= storage_output_data[14];
+                matrix_display_data[15] <= storage_output_data[15];
+                matrix_display_data[16] <= storage_output_data[16];
+                matrix_display_data[17] <= storage_output_data[17];
+                matrix_display_data[18] <= storage_output_data[18];
+                matrix_display_data[19] <= storage_output_data[19];
+                matrix_display_data[20] <= storage_output_data[20];
+                matrix_display_data[21] <= storage_output_data[21];
+                matrix_display_data[22] <= storage_output_data[22];
+                matrix_display_data[23] <= storage_output_data[23];
+                matrix_display_data[24] <= storage_output_data[24];
+                // 传入到乘法矩阵2
                 matrix_opr_2[0] <= storage_output_data[0];
                 matrix_opr_2[1] <= storage_output_data[1];  
                 matrix_opr_2[2] <= storage_output_data[2];
@@ -1661,9 +1845,22 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_2[22] <= storage_output_data[22];
                 matrix_opr_2[23] <= storage_output_data[23];
                 matrix_opr_2[24] <= storage_output_data[24];
-                state <=10'd448;
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b1;
+                    state <=10'd448;
+                end
             end
+            
             10'd448: begin
+                
+                if (btn_confirm_pulse) begin
+                    // 将display_start变为0
+                    display_start <= 0;
+                    state <= 10'd449;
+                end
+            end
+            
+            10'd449: begin
                 // 将mult_en变为1，开始加法，将乘法结果接到display???
                 mult_en <= 1;
                 display_row <= mult_r_out;
@@ -1695,28 +1892,16 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_display_data[24] <= mult_res[24];
                 
                 if (btn_confirm_pulse) begin
-                    state <= 10'd449;
-                end
-                if (btn_return_pulse) begin
-                    state <= 10'd400;
-                end
-            end
-            
-            10'd449: begin
-                // 将display_start变为1，开始传???
-                display_start <= 1;
-                
-                if (btn_confirm_pulse) begin
-                    // 将display_start和mult_en变为0
-                    display_start <= 0;
+                    display_start <= 1'b1;
                     mult_en <= 0;
-                    state <= 10'd400;
+                    state <= 10'd449;
                 end
             end
             
             10'd450: begin
                 // 展示矩阵
                 start_info_display_pulse <= 1'd1;
+                rand_en <= 1'b1;
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"0";
@@ -1727,7 +1912,7 @@ always @(posedge clk or negedge rst_n) begin
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'd0;
                     start_search_display_pulse <= 1'b0;
-                    rand_en <= 1'b1;
+                    req_index <= rand_num - 3'b1;
                     state <= 10'd550;
                 end
                 if (btn_confirm_pulse) begin
@@ -1839,7 +2024,6 @@ always @(posedge clk or negedge rst_n) begin
                 // 根据info传出的随机矩阵规模和数量(生成随机序号)选定矩阵，直接跳到413展示矩阵
                 req_scale_row <= rand_row;
                 req_scale_col <= rand_col;
-
                 led <= req_index;
                 
                 if (btn_confirm_pulse) begin
@@ -1853,9 +2037,14 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd520: begin
+                // 根据info传出的随机矩阵规模和数量(生成随机序号)选定矩阵，直接跳到413展示矩阵
+                req_scale_row <= rand_row;
+                req_scale_col <= rand_col;
+                led <= req_index;
                 
                 if (btn_confirm_pulse) begin
-                    rand_en <= 1'b0;
+                    // 第二个随机序号
+                    req_index <= rand_num - 3'b1;
                     state <= 10'd521;
                 end
                 if (btn_return_pulse) begin
@@ -1864,7 +2053,7 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             
-            10'd530: begin
+            10'd521: begin
                 
                 if (btn_confirm_pulse) begin
                     rand_en <= 1'b0;
