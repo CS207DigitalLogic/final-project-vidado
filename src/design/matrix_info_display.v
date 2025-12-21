@@ -74,6 +74,8 @@ module matrix_info_display#(
         .random_num (rng_out_raw)
     );
 
+    assign rng_out = rng_out_raw[2:0];
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= S_IDLE;

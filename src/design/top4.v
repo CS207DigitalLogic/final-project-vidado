@@ -364,7 +364,7 @@ random_matrix_generator #(.WIDTH(DATA_WIDTH), .MAX_DIM(MAX_SIZE)) u_rand_matrix 
 reg rand_en;
 wire [2:0] rand_num;
 random_num_generator #(
-    .WIDTH(3) 
+    .WIDTH(8) 
 ) rng_inst (
     .clk        (clk),
     .rst_n      (rst_n),
