@@ -61,13 +61,16 @@ module matrix_info_display#(
     reg  [2:0] target_rand_val;  
     reg  [2:0] rc;               // [修改] 稍微加大位宽防止溢出，虽然5位够用
 
+    wire rng_en;
+    assign rng_en = (state == S_IDLE);
+
     // 随机数生成器 (保持不变)
     random_num_generator #(
         .WIDTH(3) 
     ) rng_inst (
         .clk        (clk),
         .rst_n      (rst_n),
-        .en         (1'b1),         
+        .en         (rng_en),         
         .min_val    (3'd1),         
         .max_val    (3'd5),         
         .random_num (rng_out)

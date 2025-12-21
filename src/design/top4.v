@@ -102,6 +102,12 @@ reg start_search_display_pulse;
     reg  [7:0]  final_tx_data;
     wire        uart_real_busy; // 真正?? UART 忙信??
 
+    // 5. 新增：Displayer 80 的信号
+    wire        disp80_tx_start;
+    wire [7:0]  disp80_tx_data;
+    wire        disp80_busy; 
+    reg         display_start80; // 状态机控制这个信号
+
 
 
 
@@ -227,12 +233,16 @@ always @(*) begin
             final_tx_start = search_tx_start;
             final_tx_data  = search_tx_data;
         end 
-        else begin
-            // 没人发???，保持安静
-            final_tx_start = 1'b0;
-            final_tx_data  = 8'd0;
+        else if (disp80_tx_start) begin
+        final_tx_start = disp80_tx_start;
+        final_tx_data  = disp80_tx_data;
         end
+
+        else begin
+        final_tx_start = 1'b0;
+        final_tx_data  = 8'd0;
     end
+end
 
 
 
@@ -615,6 +625,37 @@ matrix_search_displayer #(
     .tx_busy    (uart_real_busy)  // 监听 UART 真正的忙信号
 );
 
+// Matrix Displayer 80 
+matrix_displayer80 #(.DATA_WIDTH(DATA_WIDTH)) u_matrix_displayer80 (
+    .clk(clk), .rst_n(rst_n),
+    .start(display_start80), // 连到状态机控制的寄存器
+    .busy(disp80_busy),      // 连到 wire
+    
+    // 连接 80 个卷积结果
+    .d0(conv_res[0]),   .d1(conv_res[1]),   .d2(conv_res[2]),   .d3(conv_res[3]),   .d4(conv_res[4]),
+    .d5(conv_res[5]),   .d6(conv_res[6]),   .d7(conv_res[7]),   .d8(conv_res[8]),   .d9(conv_res[9]),
+    .d10(conv_res[10]), .d11(conv_res[11]), .d12(conv_res[12]), .d13(conv_res[13]), .d14(conv_res[14]),
+    .d15(conv_res[15]), .d16(conv_res[16]), .d17(conv_res[17]), .d18(conv_res[18]), .d19(conv_res[19]),
+    .d20(conv_res[20]), .d21(conv_res[21]), .d22(conv_res[22]), .d23(conv_res[23]), .d24(conv_res[24]),
+    .d25(conv_res[25]), .d26(conv_res[26]), .d27(conv_res[27]), .d28(conv_res[28]), .d29(conv_res[29]),
+    .d30(conv_res[30]), .d31(conv_res[31]), .d32(conv_res[32]), .d33(conv_res[33]), .d34(conv_res[34]),
+    .d35(conv_res[35]), .d36(conv_res[36]), .d37(conv_res[37]), .d38(conv_res[38]), .d39(conv_res[39]),
+    .d40(conv_res[40]), .d41(conv_res[41]), .d42(conv_res[42]), .d43(conv_res[43]), .d44(conv_res[44]),
+    .d45(conv_res[45]), .d46(conv_res[46]), .d47(conv_res[47]), .d48(conv_res[48]), .d49(conv_res[49]),
+    .d50(conv_res[50]), .d51(conv_res[51]), .d52(conv_res[52]), .d53(conv_res[53]), .d54(conv_res[54]),
+    .d55(conv_res[55]), .d56(conv_res[56]), .d57(conv_res[57]), .d58(conv_res[58]), .d59(conv_res[59]),
+    .d60(conv_res[60]), .d61(conv_res[61]), .d62(conv_res[62]), .d63(conv_res[63]), .d64(conv_res[64]),
+    .d65(conv_res[65]), .d66(conv_res[66]), .d67(conv_res[67]), .d68(conv_res[68]), .d69(conv_res[69]),
+    .d70(conv_res[70]), .d71(conv_res[71]), .d72(conv_res[72]), .d73(conv_res[73]), .d74(conv_res[74]),
+    .d75(conv_res[75]), .d76(conv_res[76]), .d77(conv_res[77]), .d78(conv_res[78]), .d79(conv_res[79]),
+    
+    .tx_start (disp80_tx_start),
+    .tx_data  (disp80_tx_data),
+    .tx_busy  (uart_real_busy)
+);
+
+
+
 // 缓存
 reg [7:0] rx_buf;
 reg [4:0] input_cnt;    // 当前录入到第几个数据
@@ -636,6 +677,7 @@ always @(posedge clk or negedge rst_n) begin
         rand_gen_en <= 0; rand_row <= 0; rand_col <= 0;
         min_val <= 0; max_val <= 9;
         display_start <= 0;
+        display_start80 <= 0;
         // 测试用灯
         led <= 14'b00_0000_0000_0011;
         // 初始?? storage inputs
@@ -697,7 +739,6 @@ always @(posedge clk or negedge rst_n) begin
                 if (rx_done) begin
                     // 过滤：只接受 0~9 的数字 (忽略空格、换行、逗号)
                     if (rx_data >= "0" && rx_data <= "9") begin
-                        
                         // 1. 存入当前数据
                         storage_input_data[input_cnt] <= rx_data - "0";
                         
@@ -1603,11 +1644,11 @@ always @(posedge clk or negedge rst_n) begin
             
             10'd452: begin
                 // 将display_start变为1，开始传???
-                display_start <= 1;
+                display_start80 <= 1;
                 
                 if (btn_confirm_pulse) begin
                     // 将display_start和conv_en变为0
-                    display_start <= 0;
+                    display_start80 <= 0;
                     conv_en <= 0;
                     state <= 10'd400;
                 end

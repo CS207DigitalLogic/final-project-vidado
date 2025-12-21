@@ -162,7 +162,7 @@ module matrix_search_displayer #(
                 // 6. 准备发送矩阵元素
                 S_CALC_DIGIT: begin
                     // 取出当前元素
-                    current_val = mat_cache[r_cnt * target_col + c_cnt];
+                    current_val = mat_cache[ {2'b0, r_cnt} * {2'b0, target_col} + {2'b0, c_cnt} ];
                     
                     // 简单的二进制转BCD (支持 0~999)
                     digit_hundreds = current_val / 100;
