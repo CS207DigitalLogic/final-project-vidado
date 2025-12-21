@@ -2032,11 +2032,9 @@ always @(posedge clk or negedge rst_n) begin
                 led <= req_index;
                 
                 if (btn_confirm_pulse) begin
-                    rand_en <= 1'b0;
                     state <= 10'd413;
                 end
                 if (btn_return_pulse) begin
-                    rand_en <= 1'b0;
                     state <= 10'd410;
                 end
             end
@@ -2048,17 +2046,14 @@ always @(posedge clk or negedge rst_n) begin
                 led <= req_index;
                 
                 if (btn_confirm_pulse) begin
-                    // 第二个随机序号
-                    req_index <= rand_num - 3'b1;
                     state <= 10'd521;
                 end
                 if (btn_return_pulse) begin
-                    rand_en <= 1'b0;
                     state <= 10'd420;
                 end
             end
             
-            10'd521: begin
+            10'd530: begin
                 
                 if (btn_confirm_pulse) begin
                     rand_en <= 1'b0;
