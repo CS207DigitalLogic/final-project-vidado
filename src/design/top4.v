@@ -101,14 +101,12 @@ reg start_search_display_pulse;
     reg         final_tx_start;
     reg  [7:0]  final_tx_data;
     wire        uart_real_busy; // 真正?? UART 忙信??
-
+    
     // 5. 新增：Displayer 80 的信号
     wire        disp80_tx_start;
     wire [7:0]  disp80_tx_data;
     wire        disp80_busy; 
     reg         display_start80; // 状态机控制这个信号
-
-
 
 
 // 定义各模块对 Storage 的查询信??
@@ -126,7 +124,6 @@ reg start_search_display_pulse;
     reg [2:0] final_storage_row;
     reg [2:0] final_storage_col;
     reg [2:0] final_storage_idx;
-
 
 
 
@@ -234,15 +231,15 @@ always @(*) begin
             final_tx_data  = search_tx_data;
         end 
         else if (disp80_tx_start) begin
-        final_tx_start = disp80_tx_start;
-        final_tx_data  = disp80_tx_data;
+            final_tx_start = disp80_tx_start;
+            final_tx_data  = disp80_tx_data;
         end
-
         else begin
-        final_tx_start = 1'b0;
-        final_tx_data  = 8'd0;
+            // 没人发???，保持安静
+            final_tx_start = 1'b0;
+            final_tx_data  = 8'd0;
+        end
     end
-end
 
 
 
@@ -288,36 +285,31 @@ matrix_rx_handler u_rx_handler (
     .save_done_pulse(rx_handler_done)
 );
 
-
-
-    // Storage 地址仲裁逻辑
-    always @(*) begin
-        //if (start_info_display_pulse) begin 
-        
-        if (start_info_display_pulse || info_busy) begin 
-            // Info 模块只需要查数量 (cnt)，不??要读具体数据 (idx 设为0即可)
-            final_storage_row = info_qry_row;
-            final_storage_col = info_qry_col;
-            final_storage_idx = 3'd0; 
-        end
-        else if (start_search_display_pulse || search_busy) begin 
-            
-            // Search 模块??要查全部
-            final_storage_row = search_req_row;
-            final_storage_col = search_req_col;
-            final_storage_idx = search_req_idx;
-        end
-        else begin
-            
-            // 使用主状态机控制的寄存器 
-            final_storage_row = req_scale_row;
-            final_storage_col = req_scale_col;
-            final_storage_idx = req_index;
-        end
+// Storage 地址仲裁逻辑
+always @(*) begin
+    //if (start_info_display_pulse) begin 
+    
+    if (start_info_display_pulse || info_busy) begin 
+        // Info 模块只需要查数量 (cnt)，不??要读具体数据 (idx 设为0即可)
+        final_storage_row = info_qry_row;
+        final_storage_col = info_qry_col;
+        final_storage_idx = 3'd0; 
     end
-
-
-
+    else if (start_search_display_pulse || search_busy) begin 
+        
+        // Search 模块??要查全部
+        final_storage_row = search_req_row;
+        final_storage_col = search_req_col;
+        final_storage_idx = search_req_idx;
+    end
+    else begin
+        
+        // 使用主状态机控制的寄存器 
+        final_storage_row = req_scale_row;
+        final_storage_col = req_scale_col;
+        final_storage_idx = req_index;
+    end
+end
 
 // Storage
 multi_matrix_storage #(
@@ -366,6 +358,20 @@ random_matrix_generator #(.WIDTH(DATA_WIDTH), .MAX_DIM(MAX_SIZE)) u_rand_matrix 
     .matrix_out18(rand_data[18]),.matrix_out19(rand_data[19]),.matrix_out20(rand_data[20]),
     .matrix_out21(rand_data[21]),.matrix_out22(rand_data[22]),.matrix_out23(rand_data[23]),
     .matrix_out24(rand_data[24]), .update_done(rand_update_done)
+);
+
+// 随机数生成器
+reg rand_en;
+wire [2:0] rand_num;
+random_num_generator #(
+    .WIDTH(3) 
+) rng_inst (
+    .clk        (clk),
+    .rst_n      (rst_n),
+    .en         (rand_en),         
+    .min_val    (3'd1),         
+    .max_val    (rand_cnt),         
+    .random_num (rand_num)
 );
 
 // Matrix Adder
@@ -654,8 +660,6 @@ matrix_displayer80 #(.DATA_WIDTH(DATA_WIDTH)) u_matrix_displayer80 (
     .tx_busy  (uart_real_busy)
 );
 
-
-
 // 缓存
 reg [7:0] rx_buf;
 reg [4:0] input_cnt;    // 当前录入到第几个数据
@@ -739,6 +743,7 @@ always @(posedge clk or negedge rst_n) begin
                 if (rx_done) begin
                     // 过滤：只接受 0~9 的数字 (忽略空格、换行、逗号)
                     if (rx_data >= "0" && rx_data <= "9") begin
+                        
                         // 1. 存入当前数据
                         storage_input_data[input_cnt] <= rx_data - "0";
                         
@@ -963,7 +968,7 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
-                    start_info_display_pulse <= 1'b0;
+                    rand_en <= 1'b1;
                     state <= 10'd510;
                 end
                 if (btn_confirm_pulse) begin
@@ -1007,7 +1012,40 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd413: begin
-                state <= 10'd414; 
+                // 准备展示选定的矩阵
+                matrix_opr_1_r1 <= req_scale_row;
+                matrix_opr_1_c1 <= req_scale_col;
+                display_row <= req_scale_row;
+                display_col <= req_scale_col;
+                matrix_display_data[0]  <= storage_output_data[0];
+                matrix_display_data[1]  <= storage_output_data[1];
+                matrix_display_data[2]  <= storage_output_data[2];
+                matrix_display_data[3]  <= storage_output_data[3];
+                matrix_display_data[4]  <= storage_output_data[4];
+                matrix_display_data[5]  <= storage_output_data[5];
+                matrix_display_data[6]  <= storage_output_data[6];
+                matrix_display_data[7]  <= storage_output_data[7];
+                matrix_display_data[8]  <= storage_output_data[8];
+                matrix_display_data[9]  <= storage_output_data[9];
+                matrix_display_data[10] <= storage_output_data[10];
+                matrix_display_data[11] <= storage_output_data[11];
+                matrix_display_data[12] <= storage_output_data[12];
+                matrix_display_data[13] <= storage_output_data[13];
+                matrix_display_data[14] <= storage_output_data[14];
+                matrix_display_data[15] <= storage_output_data[15];
+                matrix_display_data[16] <= storage_output_data[16];
+                matrix_display_data[17] <= storage_output_data[17];
+                matrix_display_data[18] <= storage_output_data[18];
+                matrix_display_data[19] <= storage_output_data[19];
+                matrix_display_data[20] <= storage_output_data[20];
+                matrix_display_data[21] <= storage_output_data[21];
+                matrix_display_data[22] <= storage_output_data[22];
+                matrix_display_data[23] <= storage_output_data[23];
+                matrix_display_data[24] <= storage_output_data[24];
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b1;
+                    state <= 10'd414; 
+                end
             end
             10'd414: begin
                 matrix_opr_1[0] <= storage_output_data[0];
@@ -1035,8 +1073,9 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
-                state <= 10'd415;
-                
+                if (btn_confirm_pulse) begin
+                    state <= 10'd415;
+                end
             end
             10'd415: begin
                 // 先拉高使能，不要在这个周期立刻读结果
@@ -1104,6 +1143,7 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
+                    rand_en <= 1'b1;
                     state <= 10'd520;
                 end
                 if (btn_confirm_pulse) begin
@@ -1305,6 +1345,7 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
+                    rand_en <= 1'b1;
                     state <= 10'd530;
                 end
                 if (btn_confirm_pulse) begin
@@ -1448,6 +1489,7 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
+                    rand_en <= 1'b1;
                     state <= 10'd540;
                 end
                 if (btn_confirm_pulse) begin
@@ -1652,6 +1694,7 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_search_display_pulse <= 1'b0;
+                    rand_en <= 1'b1;
                     state <= 10'd550;
                 end
                 if (btn_confirm_pulse) begin
@@ -1707,22 +1750,30 @@ always @(posedge clk or negedge rst_n) begin
             
             10'd453: begin
                 // 将display_start变为1，开始传???
-                display_start80 <= 1;
+                display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
                     // 将display_start和conv_en变为0
-                    display_start80 <= 0;
+                    display_start <= 0;
                     conv_en <= 0;
                     state <= 10'd400;
                 end
             end
             
             10'd510: begin
+                // 根据info传出的随机矩阵规模和数量(生成随机序号)选定矩阵，直接跳到413展示矩阵
+                req_scale_row <= rand_row;
+                req_scale_col <= rand_col;
+                req_index <= rand_num - 3'b1;
+                led <= req_index;
                 
                 if (btn_confirm_pulse) begin
-                    state <= 10'd511;
+                    start_info_display_pulse <= 1'b0;
+                    rand_en <= 1'b0;
+                    state <= 10'd413;
                 end
                 if (btn_return_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd410;
                 end
             end
@@ -1730,9 +1781,11 @@ always @(posedge clk or negedge rst_n) begin
             10'd520: begin
                 
                 if (btn_confirm_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd521;
                 end
                 if (btn_return_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd420;
                 end
             end
@@ -1740,9 +1793,11 @@ always @(posedge clk or negedge rst_n) begin
             10'd530: begin
                 
                 if (btn_confirm_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd531;
                 end
                 if (btn_return_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd430;
                 end
             end
@@ -1750,9 +1805,11 @@ always @(posedge clk or negedge rst_n) begin
             10'd540: begin
                 
                 if (btn_confirm_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd541;
                 end
                 if (btn_return_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd440;
                 end
             end
@@ -1760,9 +1817,11 @@ always @(posedge clk or negedge rst_n) begin
             10'd550: begin
                 
                 if (btn_confirm_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd551;
                 end
                 if (btn_return_pulse) begin
+                    rand_en <= 1'b0;
                     state <= 10'd450;
                 end
             end
