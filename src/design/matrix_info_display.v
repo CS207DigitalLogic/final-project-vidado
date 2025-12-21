@@ -57,20 +57,21 @@ module matrix_info_display#(
     // ==========================================
     // [新增] 随机数逻辑变量
     // ==========================================
-    wire [2:0] rng_out;          
+    wire [7:0] rng_out_raw; // [修改] 原始随机数输出改为 8 位
+    wire [2:0] rng_out;     // 最终我们只取需要的低3位（或者由 min/max 自动限制）       
     reg  [2:0] target_rand_val;  
-    reg  [2:0] rc;               // [修改] 稍微加大位宽防止溢出，虽然5位够用
+    reg  [5:0] rc;               // [修改] 稍微加大位宽防止溢出，虽然5位够用
 
     // 随机数生成器 (保持不变)
     random_num_generator #(
-        .WIDTH(3) 
+        .WIDTH(8) 
     ) rng_inst (
         .clk        (clk),
         .rst_n      (rst_n),
         .en         (1'b1),         
-        .min_val    (3'd1),         
-        .max_val    (3'd5),         
-        .random_num (rng_out)
+        .min_val    (8'd1),         
+        .max_val    (8'd5),         
+        .random_num (rng_out_raw)
     );
 
     always @(posedge clk or negedge rst_n) begin
