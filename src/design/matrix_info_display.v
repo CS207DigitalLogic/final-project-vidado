@@ -63,7 +63,7 @@ module matrix_info_display#(
 
     // 随机数生成器 (保持不变)
     random_num_generator #(
-        .WIDTH(3) 
+        .WIDTH(8) 
     ) rng_inst (
         .clk        (clk),
         .rst_n      (rst_n),
