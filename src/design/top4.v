@@ -2,7 +2,7 @@ module top4 #(
     parameter DATA_WIDTH          = 9,        // 数据位宽
     parameter MAX_SIZE            = 5,        // 单个矩阵??大规模（1~5??
     parameter MATRIX_NUM          = 8,        // 全局??大矩阵数??
-    parameter MAX_MATRIX_PER_SIZE = 4,        // 每个规模??多存储矩阵数
+    parameter MAX_MATRIX_PER_SIZE = 5,        // 每个规模??多存储矩阵数
     parameter DEBOUNCE_CNT_MAX    = 20'd100000, // 按键消抖计数阈???
     parameter CLK_FREQ            = 100_000_000,
     parameter BAUD_RATE           = 115200
@@ -700,10 +700,37 @@ always @(posedge clk or negedge rst_n) begin
                         3'b010: state <= 10'd200;  // 模式2随机生成
                         3'b011: state <= 10'd300;  // 模式3矩阵展示
                         3'b100: state <= 10'd400;  // 模式4运算
+                        3'b110: state <= 10'd600;  // 模式6随机数调试
                         default: state <= 10'd000;
                     endcase
                 end
             end
+            
+            10'd600: begin
+                led <= rand_cnt;
+                rand_en <= 1'b1;
+                
+                if (btn_confirm_pulse) begin
+                    led <= rand_num;
+                    state <= 10'd610;
+                end
+                if (btn_return_pulse) begin
+                    rand_en <= 1'b0;
+                    state <= 10'd000;
+                end
+            end
+            
+            10'd610: begin
+                
+                if (btn_confirm_pulse) begin
+                    state <= 10'd600;
+                end
+                if (btn_return_pulse) begin
+                    rand_en <= 1'b0;
+                    state <= 10'd000;
+                end
+            end
+            
             10'd100: begin
                 // 只要串口收到数据
                 if (rx_done) begin
@@ -779,42 +806,42 @@ always @(posedge clk or negedge rst_n) begin
                 if (btn_return_pulse || btn_confirm_pulse) state <= 10'd000; 
             end
             
-            9'd200: begin
+            10'd200: begin
                 // uart传入r
                 led <= 14'b01_0000_0000_0000;
                 rx_buf <= rx_data;
                 rand_row <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
-                    state <= 9'd210;
+                    state <= 10'd210;
                 end
                 if (btn_return_pulse) begin
-                    state <= 9'd000;
+                    state <= 10'd000;
                 end
             end
             
-            9'd210: begin
+            10'd210: begin
                 // uart传入c，随机生成矩阵并存储
                 led <= 14'b01_0000_0000_0000;
                 rx_buf <= rx_data;
                 rand_col <= rx_data-"0";
 
                 if (btn_confirm_pulse) begin
-                    state <= 9'd220;
+                    state <= 10'd220;
                 end
             end
 
-            9'd220: begin
+            10'd220: begin
                 // uart传入c，随机生成矩??
                 led <= 14'b01_0000_0000_0000;
                 rand_gen_en <= 1'b1;
                 if(rand_update_done) begin
                     rand_gen_en <= 1'b0;
-                    state <= 9'd230;
+                    state <= 10'd230;
                 end
                 
             end
-           9'd230: begin
+           10'd230: begin
                 // 1. 准备数据 (Data Setup)
                 led <= 14'b01_0000_0000_0000;
              
@@ -850,33 +877,33 @@ always @(posedge clk or negedge rst_n) begin
                 wr_en_reg <= 1'b0; 
                 
                 // 跳到专门??"触发状???"
-                state <= 9'd233; 
+                state <= 10'd233; 
             end
-            9'd233: begin
+            10'd233: begin
                 // 空状态，等待写入脉冲产生
-                state <= 9'd234;
+                state <= 10'd234;
             end
-            9'd234: begin
+            10'd234: begin
                 // 空状态，等待写入脉冲产生
-                state <= 9'd235;
+                state <= 10'd235;
             end
             // --- 新增状???：产生写脉?? (Write Pulse) ---
-            9'd235: begin
+            10'd235: begin
                 wr_en_reg <= 1'b1; // 拉高写使??
-                state <= 9'd240;   // 立即跳转，只保持??个周期的高电??
+                state <= 10'd240;   // 立即跳转，只保持??个周期的高电??
             end
             // ---------------------------------------
 
-            9'd240: begin
+            10'd240: begin
                 // 【重要???立即拉低写使能！形?? 0->1->0 的脉??
                 wr_en_reg <= 1'b0; 
                 
                 // 在这里可以放心地等待多久都行，因?? wr_en 已经?? 0 ??
                 if (btn_confirm_pulse) begin
-                    state <= 9'd000;
+                    state <= 10'd000;
                 end
             end
-            9'd300: begin
+            10'd300: begin
                 // 使用matrix_info_display模块展示矩阵
                 rx_buf <= rx_data;
                 req_scale_row <= 3'd0;
@@ -884,32 +911,32 @@ always @(posedge clk or negedge rst_n) begin
                 
                 start_info_display_pulse<=1'd1;
 
-                state <= 9'd301;
+                state <= 10'd301;
               
             end
 
-            9'd301: begin
+            10'd301: begin
                 // 立刻拉低启动信号
                 start_info_display_pulse <= 1'b0;
     
-                state <= 9'd310;
+                state <= 10'd310;
             end
 
-            9'd310: begin
+            10'd310: begin
                 // uart传入r
                 rx_buf <= rx_data;
             
                 start_search_display_pulse <= 1'b0;
                 display_row <= rx_data-"0";
                 if (btn_confirm_pulse) begin
-                    state <= 9'd320;
+                    state <= 10'd320;
                 end
                 if (btn_return_pulse) begin
-                    state <= 9'd000;
+                    state <= 10'd000;
                 end
             end
             
-            9'd320: begin
+            10'd320: begin
                 // uart传入c，展示矩??
                 rx_buf <= rx_data;
                 display_col <= rx_data-"0";
@@ -924,26 +951,26 @@ always @(posedge clk or negedge rst_n) begin
                     
                     // 3. 跳转到显示保持状??
                     // 如果停留?? 320，display_start 持续为高可能会导致模块不断复位或重发
-                    state <= 9'd330; 
+                    state <= 10'd330; 
                 end
                 
                 // 补充返回逻辑
                 if (btn_return_pulse) begin
-                    state <= 9'd000;
+                    state <= 10'd000;
                 end
             end
-            9'd330: begin
+            10'd330: begin
                  start_search_display_pulse <= 1'b0;
                 // 等待用户按下返回或确认键??出显??
                 if (btn_return_pulse || btn_confirm_pulse) begin
-                    state <= 9'd000;
+                    state <= 10'd000;
                 
                 end
             end
             
              10'd400: begin
                 // 模式4操作（留白）
-                led <= 14'b00_0100_0000_0000;
+                led <= 14'b00_0000_0000_0000;
                 
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
@@ -963,12 +990,14 @@ always @(posedge clk or negedge rst_n) begin
             10'd410: begin
                 // 展示矩阵
                 start_info_display_pulse<=1'd1;
+                rand_en <= 1'b1;
+                led <= rand_cnt;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
-                    rand_en <= 1'b1;
+                    req_index <= rand_num - 3'b1;
                     state <= 10'd510;
                 end
                 if (btn_confirm_pulse) begin
@@ -1685,6 +1714,8 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd450: begin
+                // 展示矩阵
+                start_info_display_pulse <= 1'd1;
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"0";
@@ -1693,21 +1724,61 @@ always @(posedge clk or negedge rst_n) begin
                 start_search_display_pulse <= 1'b1;
                 
                 if (btn_random_pulse) begin
+                    start_info_display_pulse <= 1'd0;
                     start_search_display_pulse <= 1'b0;
                     rand_en <= 1'b1;
                     state <= 10'd550;
                 end
                 if (btn_confirm_pulse) begin
+                    start_info_display_pulse <= 1'd0;
                     start_search_display_pulse <= 1'b0;
                     state <= 10'd451;
                 end
                 if (btn_return_pulse) begin
+                    start_info_display_pulse <= 1'd0;
                     start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
             
             10'd451: begin
+                // 准备展示选定的矩阵
+                matrix_opr_1_r1 <= req_scale_row;
+                matrix_opr_1_c1 <= req_scale_col;
+                display_row <= req_scale_row;
+                display_col <= req_scale_col;
+                matrix_display_data[0]  <= storage_output_data[0];
+                matrix_display_data[1]  <= storage_output_data[1];
+                matrix_display_data[2]  <= storage_output_data[2];
+                matrix_display_data[3]  <= storage_output_data[3];
+                matrix_display_data[4]  <= storage_output_data[4];
+                matrix_display_data[5]  <= storage_output_data[5];
+                matrix_display_data[6]  <= storage_output_data[6];
+                matrix_display_data[7]  <= storage_output_data[7];
+                matrix_display_data[8]  <= storage_output_data[8];
+                matrix_display_data[9]  <= storage_output_data[9];
+                matrix_display_data[10] <= storage_output_data[10];
+                matrix_display_data[11] <= storage_output_data[11];
+                matrix_display_data[12] <= storage_output_data[12];
+                matrix_display_data[13] <= storage_output_data[13];
+                matrix_display_data[14] <= storage_output_data[14];
+                matrix_display_data[15] <= storage_output_data[15];
+                matrix_display_data[16] <= storage_output_data[16];
+                matrix_display_data[17] <= storage_output_data[17];
+                matrix_display_data[18] <= storage_output_data[18];
+                matrix_display_data[19] <= storage_output_data[19];
+                matrix_display_data[20] <= storage_output_data[20];
+                matrix_display_data[21] <= storage_output_data[21];
+                matrix_display_data[22] <= storage_output_data[22];
+                matrix_display_data[23] <= storage_output_data[23];
+                matrix_display_data[24] <= storage_output_data[24];
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b1;
+                    state <= 10'd452; 
+                end
+            end
+            
+            10'd452: begin
                 matrix_opr_1[0] <= storage_output_data[0];
                 matrix_opr_1[1] <= storage_output_data[1];  
                 matrix_opr_1[2] <= storage_output_data[2];
@@ -1733,28 +1804,31 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
-                state <= 10'd452;
+                if (btn_confirm_pulse) begin
+                    display_start <= 1'b0;
+                    state <= 10'd453;
+                end
             end
             
-            10'd452: begin
+            10'd453: begin
                 // 将conv_en变为1，开始卷积，将卷积结果接到displayer80???
                 conv_en <= 1;
                 
                 if (btn_confirm_pulse) begin
-                    state <= 10'd453;
+                    state <= 10'd454;
                 end
                 if (btn_return_pulse) begin
                     state <= 10'd400;
                 end
             end
             
-            10'd453: begin
-                // 将display_start变为1，开始传???
-                display_start <= 1;
+            10'd454: begin
+                // 将display80_start变为1，开始传???
+                display_start80 <= 1;
                 
                 if (btn_confirm_pulse) begin
                     // 将display_start和conv_en变为0
-                    display_start <= 0;
+                    display_start80 <= 0;
                     conv_en <= 0;
                     state <= 10'd400;
                 end
@@ -1764,7 +1838,7 @@ always @(posedge clk or negedge rst_n) begin
                 // 根据info传出的随机矩阵规模和数量(生成随机序号)选定矩阵，直接跳到413展示矩阵
                 req_scale_row <= rand_row;
                 req_scale_col <= rand_col;
-                req_index <= rand_num - 3'b1;
+
                 led <= req_index;
                 
                 if (btn_confirm_pulse) begin
