@@ -362,7 +362,7 @@ random_matrix_generator #(.WIDTH(DATA_WIDTH), .MAX_DIM(MAX_SIZE)) u_rand_matrix 
 
 // 随机数生成器
 reg rand_en;
-wire [2:0] rand_num;
+wire [4:0] rand_num;
 random_num_generator #(
     .WIDTH(8) 
 ) rng_inst (
@@ -997,6 +997,7 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
+                    start_info_display_pulse <= 1'b0;
                     req_index <= rand_num - 3'b1;
                     state <= 10'd510;
                 end
@@ -1842,7 +1843,6 @@ always @(posedge clk or negedge rst_n) begin
                 led <= req_index;
                 
                 if (btn_confirm_pulse) begin
-                    start_info_display_pulse <= 1'b0;
                     rand_en <= 1'b0;
                     state <= 10'd413;
                 end
