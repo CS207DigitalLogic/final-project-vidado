@@ -90,7 +90,7 @@ bin_to_bcd_3digit bin_to_bcd_inst (
 );
 bin_to_bcd_3digit bin_to_bcd_inst2 (
     .bin_in(convPeriod), // 输入 8 位二进制数
-    .bcd_out(bcd_peroid)   // 输出 12 位 BCD 码
+    .bcd_out(bcd_period)   // 输出 12 位 BCD 码
 );
     // -------------------------- 3. 组合逻辑：确定每个数码管显示的内容 --------------------------
     always @(*) begin
