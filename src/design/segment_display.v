@@ -149,7 +149,7 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
             4'd1:begin
                 seg_code[1] = SEG_1;
                 displayMode = 1'b0;
-                if(bcd_number[11:8]==4'd4)
+                if(bcd_number[11:8]==4'd4||bcd_number[11:8]==4'd5)
                 begin
                 seg_code[3] = SEG_T;
                 end
@@ -157,7 +157,7 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
             4'd2: begin
                 seg_code[1] = SEG_2;
                 displayMode = 1'b0;
-               if(bcd_number[11:8]==4'd4)
+                if(bcd_number[11:8]==4'd4||bcd_number[11:8]==4'd5)
                 begin
                 seg_code[3] = SEG_A;
                 end
@@ -165,7 +165,7 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
             4'd3: begin
                 seg_code[1] = SEG_3;
                 displayMode = 1'b0;
-                if(bcd_number[11:8]==4'd4)
+                if(bcd_number[11:8]==4'd4||bcd_number[11:8]==4'd5)
                 begin
                 seg_code[3] = SEG_B;
                 end
@@ -173,7 +173,7 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
             4'd4: begin
                 seg_code[1] = SEG_4;
                 displayMode = 1'b0;
-                if(bcd_number[11:8]==4'd4)
+                if(bcd_number[11:8]==4'd4||bcd_number[11:8]==4'd5)
                 begin
                 seg_code[3] = SEG_C;
                 end
