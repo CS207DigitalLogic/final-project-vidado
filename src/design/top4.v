@@ -725,6 +725,16 @@ always @(posedge clk or negedge rst_n) begin
                     endcase
                 end
             end
+
+            10'd99: begin
+                    led_error_status <= 1'b1; // 1. 强制亮红灯
+                    
+                    if (btn_confirm_pulse || btn_return_pulse) begin
+                        led_error_status <= 1'b0; // 灭灯
+                        state <= 10'd100;         // 回到起点，重新开始输入行
+                    end
+                end
+            
             // --- 状态 100: 接收行数 ---
             10'd100: begin
                 // 初始化：刚进入等待状态时，清空计数器，确保是全新开始
@@ -741,7 +751,7 @@ always @(posedge clk or negedge rst_n) begin
                         // 一旦出错，直接亮灯，并保持在 100（相当于重置）
                         // 任何错误的字符都会让系统认为“这是一次失败的尝试”，必须重新输入行
                         led_error_status <= 1'b1; 
-                        state <= 10'd100; 
+                        state <= 10'd99; 
                     end
                 end
                 
@@ -764,7 +774,7 @@ always @(posedge clk or negedge rst_n) begin
                         // 列数输入错误，直接熔断
                         // 放弃之前的行数据，直接跳回 100 等待重新输入行
                         led_error_status <= 1'b1;
-                        state <= 10'd100; 
+                        state <= 10'd99; 
                     end
                 end
                 
@@ -799,7 +809,7 @@ always @(posedge clk or negedge rst_n) begin
                     else begin
                         // 数据非法，直接熔断，全部作废，回 100 重来
                         led_error_status <= 1'b1;
-                        state <= 10'd100; 
+                        state <= 10'd99; 
                     end
                 end
                 
@@ -818,7 +828,7 @@ always @(posedge clk or negedge rst_n) begin
                     if (rx_data >= "0" && rx_data <= "9") begin
                         // 【修改点②】检测到多位数字，违反 0-9 限制，熔断复位
                         led_error_status <= 1'b1;
-                        state <= 10'd100; 
+                        state <= 10'd99; 
                     end
                     // 如果收到的是 分隔符 (空格/逗号/回车/换行) -> 合法！
                     else if (rx_data == " " || rx_data == "," || rx_data == 8'h0D || rx_data == 8'h0A) begin
@@ -836,7 +846,7 @@ always @(posedge clk or negedge rst_n) begin
                     // 其他非法字符 -> 报错
                     else begin
                         led_error_status <= 1'b1;
-                        state <= 10'd100;
+                        state <= 10'd99;
                     end
                 end
 
