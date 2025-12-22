@@ -724,79 +724,157 @@ always @(posedge clk or negedge rst_n) begin
                     endcase
                 end
             end
-            
+            // --- 状态 100: 接收行数 ---
             10'd100: begin
-                // 只要串口收到数据
+                // 初始化：刚进入等待状态时，清空计数器，确保是全新开始
+                input_cnt <= 0;
+                
                 if (rx_done) begin
                     // 过滤：只接受 1~5 的数字
                     if (rx_data >= "1" && rx_data <= "5") begin
-                        wr_row <= rx_data - "0"; // 存入行
-                        state <= 10'd110;        // 【自动跳转】去输列
+                        wr_row <= rx_data - "0"; 
+                        led_error_status <= 1'b0; // 输入正确，灭灯
+                        state <= 10'd110;         // 跳转去输列
+                    end
+                    else begin
+                        // 一旦出错，直接亮灯，并保持在 100（相当于重置）
+                        // 任何错误的字符都会让系统认为“这是一次失败的尝试”，必须重新输入行
+                        led_error_status <= 1'b1; 
+                        state <= 10'd100; 
                     end
                 end
                 
-                // 保留返回键
-                if (btn_return_pulse) state <= 10'd000; 
+                // 允许按键复位
+                if (btn_return_pulse) begin
+                    led_error_status <= 1'b0;
+                    state <= 10'd000; 
+                end
             end
 
-            // --- 自动接收列数 (Col) ---
+            // --- 状态 110: 接收列数 ---
             10'd110: begin
                 if (rx_done) begin
-                    // 过滤：只接受 1~5 的数字
                     if (rx_data >= "1" && rx_data <= "5") begin
-                        wr_col <= rx_data - "0"; // 存入列
-                        state <= 10'd120;        // 【自动跳转】去计算
+                        wr_col <= rx_data - "0"; 
+                        led_error_status <= 1'b0;
+                        state <= 10'd120; // 去计算
+                    end
+                    else begin
+                        // 列数输入错误，直接熔断
+                        // 放弃之前的行数据，直接跳回 100 等待重新输入行
+                        led_error_status <= 1'b1;
+                        state <= 10'd100; 
                     end
                 end
                 
                 if (btn_return_pulse) state <= 10'd100;
             end
 
-            // --- 计算矩阵总元素个数 & 初始化 ---
+            // --- 状态 120: 计算 & 初始化 ---
             10'd120: begin
-                input_total <= wr_row * wr_col; // 计算 R * C
-                input_cnt <= 0;                 // 计数器清零
-                state <= 10'd130;               // 马上进入数据接收
+                input_total <= wr_row * wr_col; 
+                input_cnt <= 0;
+                state <= 10'd130; 
             end
 
-            // --- 步骤 3: 自动接收矩阵元素 (Data) ---
+            // --- 状态 130: 等待接收单个数字  ---
             10'd130: begin
                 if (rx_done) begin
-                    // 过滤：只接受 0~9 的数字 (忽略空格、换行、逗号)
+                    // 情况 A: 收到 0-9 数字
                     if (rx_data >= "0" && rx_data <= "9") begin
+                        led_error_status <= 1'b0;
                         
-                        // 1. 存入当前数据
-                        storage_input_data[input_cnt] <= rx_data - "0";
-                        
-                        // 2. 检查是否输完了
-                        if (input_cnt + 1 >= input_total) begin
-                            state <= 10'd140; // 【自动跳转】去写入
-                        end else begin
-                            input_cnt <= input_cnt + 1; // 指针移向下一个
-                        end
+                        // 先不写入 RAM，而是暂存，去检查下一位是不是分隔符
+                        // 假设我们需要一个寄存器 temp_val 来暂存这个数字
+                        temp_val <= rx_data - "0"; 
+                        state <= 10'd131; // 跳转到“分隔符检查”状态
+                    end
+                    // 情况 B: 收到无意义的分隔符（空格、逗号、换行）
+                    else if (rx_data == " " || rx_data == "," || rx_data == 8'h0D || rx_data == 8'h0A) begin
+                        // 忽略，留在当前状态继续等数字
+                        state <= 10'd130;
+                    end
+                    // 情况 C: 收到非法字符（如字母，或乱码）
+                    else begin
+                        // 数据非法，直接熔断，全部作废，回 100 重来
+                        led_error_status <= 1'b1;
+                        state <= 10'd100; 
                     end
                 end
                 
+                // 支持提前确认补零
+                if (btn_confirm_pulse) begin
+                     if (input_cnt < input_total) state <= 10'd135; 
+                end
                 if (btn_return_pulse) state <= 10'd100;
             end
 
-            // --- 步骤 4: 触发写入 (Pulse wr_en) ---
+            // --- 【新增状态】131: 检查分隔符 ---
+            // 只有在这个状态确认下一位不是数字，才说明刚才那个数字是有效的单位数
+            10'd131: begin
+                if (rx_done) begin
+                    // 如果收到的是 0-9 的数字 -> 说明用户输了两位数（如 14） -> 报错！
+                    if (rx_data >= "0" && rx_data <= "9") begin
+                        // 【修改点②】检测到多位数字，违反 0-9 限制，熔断复位
+                        led_error_status <= 1'b1;
+                        state <= 10'd100; 
+                    end
+                    // 如果收到的是 分隔符 (空格/逗号/回车/换行) -> 合法！
+                    else if (rx_data == " " || rx_data == "," || rx_data == 8'h0D || rx_data == 8'h0A) begin
+                        // 1. 刚才暂存的 temp_val 是有效的，写入 storage
+                        storage_input_data[input_cnt] <= temp_val;
+                        
+                        // 2. 指针移动逻辑
+                        if (input_cnt + 1 >= input_total) begin
+                            state <= 10'd140; // 输完了
+                        end else begin
+                            input_cnt <= input_cnt + 1;
+                            state <= 10'd130; // 回去等下一个数字
+                        end
+                    end
+                    // 其他非法字符 -> 报错
+                    else begin
+                        led_error_status <= 1'b1;
+                        state <= 10'd100;
+                    end
+                end
+
+                // 如果用户没按键盘，而是按了 FPGA 上的“确认键”，也认为输入结束
+                if (btn_confirm_pulse) begin
+                    // 将暂存值写入
+                    storage_input_data[input_cnt] <= temp_val;
+                    // 然后进入补零状态（如果还有剩余空间）或者写入状态
+                    if (input_cnt + 1 >= input_total) state <= 10'd140;
+                    else begin
+                        input_cnt <= input_cnt + 1; // 既然按了确认，先把当前这个存了，后面的去补零
+                        state <= 10'd135; 
+                    end
+                end
+            end
+
+            // --- 状态 135: 自动补零 (Padding Zeros) ---
+            10'd135: begin
+                storage_input_data[input_cnt] <= 4'd0; 
+                if (input_cnt + 1 >= input_total) begin
+                    state <= 10'd140; 
+                end else begin
+                    input_cnt <= input_cnt + 1; 
+                end
+            end
+
+            // --- 状态 140: 触发写入 ---
             10'd140: begin
-                wr_en_reg <= 1'b1; // 拉高写使能，存入 Storage
+                wr_en_reg <= 1'b1; 
                 state <= 10'd141;
             end
 
-            // --- 步骤 5: 释放与完成 ---
+            // --- 状态 141: 完成 ---
             10'd141: begin
-                wr_en_reg <= 1'b0; // 写入完成，拉低
-                
-                // 这里回到 100，准备接收下一个矩阵，或者等待切模式
+                wr_en_reg <= 1'b0; 
                 state <= 10'd150; 
             end
-
+            
             10'd150: begin
-
-                // 已完成，可以返回
                 if (btn_return_pulse || btn_confirm_pulse) state <= 10'd000; 
             end
             
