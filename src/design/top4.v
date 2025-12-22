@@ -262,7 +262,6 @@ countdown u_countdown (
     .current_time(current_time) // 当前剩余秒数输出（可选）
 );
 
-
 uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_rx (
     .clk(clk), .rst_n(rst_n),
     .rx(uart_rx), .rx_data(rx_data), .rx_done(rx_done)
@@ -382,6 +381,7 @@ random_matrix_generator #(.WIDTH(DATA_WIDTH), .MAX_DIM(MAX_SIZE)) u_rand_matrix 
 
 // 随机数生成器
 reg rand_en;
+reg [4:0] rand_up;
 wire [4:0] rand_num;
 random_num_generator #(
     .WIDTH(8) 
@@ -390,7 +390,7 @@ random_num_generator #(
     .rst_n      (rst_n),
     .en         (rand_en),         
     .min_val    (3'd1),         
-    .max_val    (rand_cnt),         
+    .max_val    (rand_up),         
     .random_num (rand_num)
 );
 
@@ -687,7 +687,6 @@ reg [4:0] input_total;  // 总共需要录入多少个数据 (Row * Col)
 // 状???机
 integer i;
 always @(posedge clk or negedge rst_n) begin
-    
     if (!rst_n) begin
         state <= 10'd000;
         menuState <= 10'd010;
@@ -710,7 +709,6 @@ always @(posedge clk or negedge rst_n) begin
     end 
     else begin
         menuState <= state;
-        
         case(state)
             10'd000: begin
                 // 初始状???操作（留白??
@@ -722,76 +720,8 @@ always @(posedge clk or negedge rst_n) begin
                         3'b010: state <= 10'd200;  // 模式2随机生成
                         3'b011: state <= 10'd300;  // 模式3矩阵展示
                         3'b100: state <= 10'd400;  // 模式4运算
-                        3'b110: state <= 10'd600;  // 模式6随机数调试
-                        //3'b111: state <= 10'd700;  // 模式7倒计时调试
                         default: state <= 10'd000;
                     endcase
-                end
-            end
-            10'd700: begin
-                // 倒计时开始
-                led <= {1'b1,led1,led2,current_time[7:0]};
-                countdown_start <= 1'b1;
-                load_seconds <= 8'd15;
-               state <= 705;
-            end
-            10'd701:begin
-                led <= {1'b1,led1,led2,current_time[7:0]};
-                state<=10'd702;
-            end
-            10'd702:begin
-                led <= {1'b1,led1,led2,current_time[7:0]};
-                state<=10'd703;
-            end
-            10'd703:begin
-                led <= {1'b1,led1,led2,current_time[7:0]};
-                state<=10'd704;
-            end
-              10'd704:begin
-                led <= {1'b1,led1,led2,current_time[7:0]};
-                state<=10'd705;
-            end
-            10'd705:begin
-                countdown_start<=0;
-                led <= {1'b1,led1,led2,current_time[7:0]};
-                if(countdown_done) begin
-                    state<=10'd706;
-                end
-                if(btn_confirm_pulse)
-                begin
-                    state<=10'd000;
-                end
-            end
-            10'd706: begin
-                led <= {led1,led2,current_time[7:0]};
-                // 倒计时结束
-                led <= 14'b00_0000_0000_0001;
-                if(btn_return_pulse) begin
-                    state <= 10'd000;
-                end
-            end
-            10'd600: begin
-                led <= rand_cnt;
-                rand_en <= 1'b1;
-                
-                if (btn_confirm_pulse) begin
-                    led <= rand_num;
-                    state <= 10'd610;
-                end
-                if (btn_return_pulse) begin
-                    rand_en <= 1'b0;
-                    state <= 10'd000;
-                end
-            end
-            
-            10'd610: begin
-                
-                if (btn_confirm_pulse) begin
-                    state <= 10'd600;
-                end
-                if (btn_return_pulse) begin
-                    rand_en <= 1'b0;
-                    state <= 10'd000;
                 end
             end
             
@@ -1061,14 +991,16 @@ always @(posedge clk or negedge rst_n) begin
                 // 展示矩阵
                 start_info_display_pulse<=1'd1;
                 rand_en <= 1'b1;
-                led <= rand_cnt;
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_1_r1 <= rx_buf-"0";
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
-                    req_index <= rand_num - 3'b1;
+                    // 第一个随机矩阵规模及数量
+                    req_scale_row <= rand_r;
+                    req_scale_col <= rand_c;
+                    rand_up <= scale_matrix_cnt;
                     state <= 10'd510;
                 end
                 if (btn_confirm_pulse) begin
@@ -1112,6 +1044,7 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd413: begin
+                led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_1_r1 <= req_scale_row;
                 matrix_opr_1_c1 <= req_scale_col;
@@ -1244,7 +1177,10 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
-                    req_index <= rand_num - 3'b1;
+                    // 第一个随机矩阵规模及数量
+                    req_scale_row <= rand_r;
+                    req_scale_col <= rand_c;
+                    rand_up <= scale_matrix_cnt;
                     state <= 10'd520;
                 end
                 if (btn_confirm_pulse) begin
@@ -1288,6 +1224,7 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd423:begin
+                led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_1_r1 <= req_scale_row;
                 matrix_opr_1_c1 <= req_scale_col;
@@ -1344,6 +1281,11 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
+                
+                if (btn_random_pulse) begin
+                    display_start <= 1'b1;
+                    state <= 10'd521;
+                end
                 if (btn_confirm_pulse) begin
                     display_start <= 1'b1;
                     state <= 10'd424; 
@@ -1354,6 +1296,7 @@ always @(posedge clk or negedge rst_n) begin
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
                 countdown_start <=0;
+                
                 if(countdown_done && led_error_status)
                 begin
                     led_error_status <= 1'b0;
@@ -1373,8 +1316,8 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
-                if(countdown_done && led_error_status)
-                begin
+                
+                if (countdown_done && led_error_status) begin
                     led_error_status <= 1'b0;
                     state <= 10'd420;
                 end
@@ -1414,6 +1357,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             10'd427: begin
                 countdown_start <= 1'b0;
+                led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_2_r2 <= req_scale_row;
                 matrix_opr_2_c2 <= req_scale_col;
@@ -1532,7 +1476,10 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
-                    req_index <= rand_num - 3'b1;
+                    // 第一个随机矩阵规模及数量
+                    req_scale_row <= rand_r;
+                    req_scale_col <= rand_c;
+                    rand_up <= scale_matrix_cnt;
                     state <= 10'd530;
                 end
                 if (btn_confirm_pulse) begin
@@ -1577,6 +1524,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd433: begin
+                led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_1_r1 <= req_scale_row;
                 matrix_opr_1_c1 <= req_scale_col;
@@ -1633,6 +1581,12 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
+                
+                if (btn_random_pulse) begin
+                    display_start <= 1'b1;
+                    rand_up <= 5'd9;
+                    state <=10'd531;
+                end
                 if (btn_confirm_pulse) begin
                     display_start <= 1'b1;
                     state <=10'd434;
@@ -1715,7 +1669,10 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'b0;
-                    req_index <= rand_num - 3'b1;
+                    // 第一个随机矩阵规模及数量
+                    req_scale_row <= rand_r;
+                    req_scale_col <= rand_c;
+                    rand_up <= scale_matrix_cnt;
                     state <= 10'd540;
                 end
                 if (btn_confirm_pulse) begin
@@ -1759,6 +1716,7 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd443: begin
+                led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_1_r1 <= req_scale_row;
                 matrix_opr_1_c1 <= req_scale_col;
@@ -1815,6 +1773,15 @@ always @(posedge clk or negedge rst_n) begin
                 matrix_opr_1[22] <= storage_output_data[22];
                 matrix_opr_1[23] <= storage_output_data[23];
                 matrix_opr_1[24] <= storage_output_data[24];
+                
+                if (btn_random_pulse) begin
+                    display_start <= 1'b1;
+                    // 第二个随机矩阵规模及数量
+                    req_scale_row <= rand_c;
+                    req_scale_col <= rand_r;
+                    rand_up <= scale_matrix_cnt;
+                    state <= 10'd541;
+                end
                 if (btn_confirm_pulse) begin
                     display_start <= 1'b1;
                     state <= 10'd444; 
@@ -1857,7 +1824,7 @@ always @(posedge clk or negedge rst_n) begin
                 req_scale_col <= matrix_opr_2_c2;
                 
                 if (btn_confirm_pulse) begin
-                    if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
+                    if (matrix_opr_1_c1 == matrix_opr_2_r2) begin
                         state <= 10'd447;
                     end else begin
                         // 回到输入第二个矩阵的r，并触发倒计???
@@ -1869,6 +1836,7 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd447: begin
+                led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_2_r2 <= req_scale_row;
                 matrix_opr_2_c2 <= req_scale_col;
@@ -1987,7 +1955,7 @@ always @(posedge clk or negedge rst_n) begin
                 
                 if (btn_random_pulse) begin
                     start_info_display_pulse <= 1'd0;
-                    req_index <= rand_num - 3'b1;
+                    rand_up <= scale_matrix_cnt;
                     state <= 10'd550;
                 end
                 if (btn_confirm_pulse) begin
@@ -2013,6 +1981,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd452: begin
+                led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_1_r1 <= req_scale_row;
                 matrix_opr_1_c1 <= req_scale_col;
@@ -2106,65 +2075,129 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd510: begin
-                // 根据info传出的随机矩阵规模和数量(生成随机序号)选定矩阵，直接跳到413展示矩阵
-                req_scale_row <= rand_r;
-                req_scale_col <= rand_c;
-                led <= req_index;
+                // 获取矩阵规模下的随机序号
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
                 
                 if (btn_confirm_pulse) begin
+                    req_index <= rand_num - 3'b1;
+                    display_start <= 0;
                     state <= 10'd413;
                 end
                 if (btn_return_pulse) begin
+                    display_start <= 0;
                     state <= 10'd410;
                 end
             end
             
             10'd520: begin
-                // 根据info传出的随机矩阵规模和数量(生成随机序号)选定矩阵，直接跳到413展示矩阵
-                req_scale_row <= rand_row;
-                req_scale_col <= rand_col;
-                led <= req_index;
+                // 获取矩阵规模下的随机序号
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
                 
                 if (btn_confirm_pulse) begin
-                    state <= 10'd521;
+                    req_index <= rand_num - 3'b1;
+                    display_start <= 0;
+                    state <= 10'd423;
                 end
                 if (btn_return_pulse) begin
+                    display_start <= 0;
                     state <= 10'd420;
                 end
             end
             
-            10'd530: begin
+            10'd521: begin
+                // 长宽保持不变，仅用于中转状态
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
                 
                 if (btn_confirm_pulse) begin
-                    rand_en <= 1'b0;
-                    state <= 10'd531;
+                    req_index <= rand_num - 3'b1;
+                    display_start <= 0;
+                    state <= 10'd427;
                 end
                 if (btn_return_pulse) begin
-                    rand_en <= 1'b0;
+                    display_start <= 0;
+                    state <= 10'd423;
+                end
+            end
+            
+            10'd530: begin
+                // 获取矩阵规模下的随机序号
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
+                
+                if (btn_confirm_pulse) begin
+                    req_index <= rand_num - 3'b1;
+                    display_start <= 0;
+                    state <= 10'd433;
+                end
+                if (btn_return_pulse) begin
+                    display_start <= 0;
                     state <= 10'd430;
                 end
             end
             
-            10'd540: begin
+            10'd531: begin
+                // 获取随机的标量
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
                 
                 if (btn_confirm_pulse) begin
-                    rand_en <= 1'b0;
-                    state <= 10'd541;
+                    scalar_value <= rand_num;
+                    display_start <= 0;
+                    state <= 10'd435;
                 end
                 if (btn_return_pulse) begin
-                    rand_en <= 1'b0;
+                    display_start <= 0;
+                    state <= 10'd433;
+                end
+            end
+            
+            10'd540: begin
+                // 获取矩阵规模下的随机序号
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
+                
+                if (btn_confirm_pulse) begin
+                    req_index <= rand_num - 3'b1;
+                    display_start <= 0;
+                    state <= 10'd443;
+                end
+                if (btn_return_pulse) begin
+                    display_start <= 0;
                     state <= 10'd440;
                 end
             end
             
-            10'd550: begin
+            10'd541: begin
+                // 获取矩阵规模下的随机序号
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
                 
                 if (btn_confirm_pulse) begin
-                    rand_en <= 1'b0;
-                    state <= 10'd551;
+                    req_index <= rand_num - 3'b1;
+                    display_start <= 0;
+                    state <= 10'd447;
                 end
                 if (btn_return_pulse) begin
-                    rand_en <= 1'b0;
+                    display_start <= 0;
+                    state <= 10'd443;
+                end
+            end
+            
+            10'd550: begin
+                // 获取矩阵规模下的随机序号
+                rand_up <= scale_matrix_cnt;
+                led <= rand_up;
+                
+                if (btn_confirm_pulse) begin
+                    req_index <= rand_num - 3'b1;
+                    display_start <= 0;
+                    state <= 10'd453;
+                end
+                if (btn_return_pulse) begin
+                    display_start <= 0;
                     state <= 10'd450;
                 end
             end
