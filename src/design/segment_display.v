@@ -86,11 +86,11 @@ module segment_display (
     divider newclk(clk, reset, tiaoPin, clk_out);
 bin_to_bcd_3digit bin_to_bcd_inst (
     .bin_in(menuState), // 输入 8 位二进制数
-    .bcd_out(bcd_period)   // 输出 12 位 BCD 码
+    .bcd_out(bcd_number)   // 输出 12 位 BCD 码
 );
 bin_to_bcd_3digit bin_to_bcd_inst2 (
     .bin_in(convPeriod), // 输入 8 位二进制数
-    .bcd_out(bcd_number)   // 输出 12 位 BCD 码
+    .bcd_out(bcd_peroid)   // 输出 12 位 BCD 码
 );
     // -------------------------- 3. 组合逻辑：确定每个数码管显示的内容 --------------------------
     always @(*) begin
@@ -149,28 +149,48 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
             4'd1:begin
                 seg_code[1] = SEG_1;
                 displayMode = 1'b0;
+                if(bcd_number[11:8]==4'd4)
+                begin
+                seg_code[3] = SEG_T;
+                end
             end 
             4'd2: begin
                 seg_code[1] = SEG_2;
                 displayMode = 1'b0;
+               if(bcd_number[11:8]==4'd4)
+                begin
+                seg_code[3] = SEG_A;
+                end
             end 
             4'd3: begin
                 seg_code[1] = SEG_3;
                 displayMode = 1'b0;
+                if(bcd_number[11:8]==4'd4)
+                begin
+                seg_code[3] = SEG_B;
+                end
             end 
             4'd4: begin
                 seg_code[1] = SEG_4;
-                displayMode = 1'b1;
+                displayMode = 1'b0;
+                if(bcd_number[11:8]==4'd4)
+                begin
+                seg_code[3] = SEG_C;
+                end
             end
             4'd5: 
             begin
                 seg_code[1] = SEG_5;
+                if(bcd_number[11:8]==4'd4)
+                begin
+                seg_code[3] = SEG_J;
+                end
                 displayMode = 1'b0;
             end
             
             4'd6: begin
                 seg_code[1] = SEG_6;
-                 displayMode = 1'b0;
+                displayMode = 1'b0;
             end
             4'd7: seg_code[1] = SEG_7;
             4'd8: seg_code[1] = SEG_8;
@@ -180,25 +200,24 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
             4'd0: seg_code[2] = SEG_0;
             4'd1: begin
                 seg_code[2] = SEG_1;
-                seg_code[3] = SEG_T;
+                
             end
             4'd2: 
             begin
                 seg_code[2] = SEG_2;
-                seg_code[3] = SEG_A;
+                
             end
             
             4'd3: begin
                 seg_code[2] = SEG_3;
-                seg_code[3] = SEG_B;
+                
             end
             4'd4: begin
                 seg_code[2] = SEG_4;
-                seg_code[3] = SEG_C;
+                
             end
             4'd5: begin
                 seg_code[2] = SEG_5;
-                seg_code[3] = SEG_J;
             end
             4'd6: seg_code[2] = SEG_6;
             4'd7: seg_code[2] = SEG_7;
@@ -206,20 +225,32 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
             4'd9: seg_code[2] = SEG_9;
         endcase
         // 根据 seconds 确定右侧数码管显示 (如果 seconds[8] 为1，则显示秒数)
-        if(displayMode) begin
+        if(menuState==10'd455) begin
             case (bcd_period[11:8])
-                4'd0: seg_code[6] = SEG_0;
-                4'd1: seg_code[6] = SEG_1;
-                4'd2: seg_code[6] = SEG_2;
-                4'd3: seg_code[6] = SEG_3;
-                4'd4: seg_code[6] = SEG_4;
-                4'd5: seg_code[6] = SEG_5;
-                4'd6: seg_code[6] = SEG_6;
-                4'd7: seg_code[6] = SEG_7;
-                4'd8: seg_code[6] = SEG_8;
-                4'd9: seg_code[6] = SEG_9;
+                4'd0: seg_code[4] = SEG_0;
+                4'd1: seg_code[4] = SEG_1;
+                4'd2: seg_code[4] = SEG_2;
+                4'd3: seg_code[4] = SEG_3;
+                4'd4: seg_code[4] = SEG_4;
+                4'd5: seg_code[4] = SEG_5;
+                4'd6: seg_code[4] = SEG_6;
+                4'd7: seg_code[4] = SEG_7;
+                4'd8: seg_code[4] = SEG_8;
+                4'd9: seg_code[4] = SEG_9;
             endcase
             case (bcd_period[7:4])
+                4'd0: seg_code[5] = SEG_0;
+                4'd1: seg_code[5] = SEG_1;
+                4'd2: seg_code[5] = SEG_2;
+                4'd3: seg_code[5] = SEG_3;
+                4'd4: seg_code[5] = SEG_4;
+                4'd5: seg_code[5] = SEG_5;
+                4'd6: seg_code[5] = SEG_6;
+                4'd7: seg_code[5] = SEG_7;
+                4'd8: seg_code[5] = SEG_8;
+                4'd9: seg_code[5] = SEG_9;
+            endcase
+            case (bcd_period[3:0])
                 4'd0: seg_code[6] = SEG_0;
                 4'd1: seg_code[6] = SEG_1;
                 4'd2: seg_code[6] = SEG_2;
@@ -230,18 +261,6 @@ bin_to_bcd_3digit bin_to_bcd_inst2 (
                 4'd7: seg_code[6] = SEG_7;
                 4'd8: seg_code[6] = SEG_8;
                 4'd9: seg_code[6] = SEG_9;
-            endcase
-            case (bcd_period[3:0])
-                4'd0: seg_code[7] = SEG_0;
-                4'd1: seg_code[7] = SEG_1;
-                4'd2: seg_code[7] = SEG_2;
-                4'd3: seg_code[7] = SEG_3;
-                4'd4: seg_code[7] = SEG_4;
-                4'd5: seg_code[7] = SEG_5;
-                4'd6: seg_code[7] = SEG_6;
-                4'd7: seg_code[7] = SEG_7;
-                4'd8: seg_code[7] = SEG_8;
-                4'd9: seg_code[7] = SEG_9;
             endcase
         end
         if (seconds[8]) begin
