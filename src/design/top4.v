@@ -2027,8 +2027,8 @@ always @(posedge clk or negedge rst_n) begin
             
             10'd510: begin
                 // 根据info传出的随机矩阵规模和数量(生成随机序号)选定矩阵，直接跳到413展示矩阵
-                req_scale_row <= rand_row;
-                req_scale_col <= rand_col;
+                req_scale_row <= rand_r;
+                req_scale_col <= rand_c;
                 led <= req_index;
                 
                 if (btn_confirm_pulse) begin
