@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 module top4 #(
     parameter DATA_WIDTH          = 9,        // 数据位宽
     parameter MAX_SIZE            = 5,        // 单个矩阵??大规模（1~5??
@@ -145,7 +147,6 @@ endgenerate
 wire [2:0] rand_r;
 wire [2:0] rand_c;
 wire [4:0] rand_cnt;
-
 reg [3:0] temp_val;
 // ========================== 2. 解决多驱动问题的核心修改 ==========================
 
@@ -180,6 +181,7 @@ wire mult_busy_sig, mult_valid;
 // E. 卷积输出 (80个数??)
 wire [DATA_WIDTH-1:0] conv_res [0:79];
 wire conv_busy_sig;
+wire [8:0] total_cnt;
 
 // ===========================================================================
 
@@ -195,6 +197,7 @@ wire [DATA_WIDTH-1:0] rand_data [0:24];
 wire rand_update_done;
 reg [2:0] rand_row;  
 reg [2:0] rand_col;  
+reg [2:0] rand_total;
 reg rand_gen_en;
 reg [7:0] min_val;   
 reg [7:0] max_val;   
@@ -245,11 +248,11 @@ always @(*) begin
 wire [8:0] sec_wire; // 连接倒计时模块和显示模块的线
 wire countdown_done; // 倒计时结束信号
 reg countdown_start; // 倒计时开始信号
-reg [7:0] load_seconds=8'd15; // 载入倒计时秒数
+reg [7:0] load_seconds=8'd10; // 载入倒计时秒数
 wire [7:0] current_time; // 当前剩余秒数输出
 wire led1;
 wire led2;
-reg [7:0] load_seconds_setting=8'd15;
+reg [7:0] load_seconds_setting=8'd10;
 // 实例化倒计时模块
 countdown u_countdown (
     .clk(clk),
@@ -571,7 +574,8 @@ matrix_conv #(.DATA_WIDTH(DATA_WIDTH)) u_matrix_conv (
     .data_out_73(conv_res[73]), .data_out_74(conv_res[74]), .data_out_75(conv_res[75]),
     .data_out_76(conv_res[76]), .data_out_77(conv_res[77]), .data_out_78(conv_res[78]),
     .data_out_79(conv_res[79]),
-    .busy(conv_busy_sig)
+    .busy(conv_busy_sig),
+    .total_cnt(total_cnt)
 );
 
 // Matrix Displayer
@@ -600,7 +604,7 @@ segment_display u_segment_display(
     .menuState(menuState), .seconds(sec_wire),
     .tub_sel1(seg_cs_pin[0]), .tub_sel2(seg_cs_pin[1]), .tub_sel3(seg_cs_pin[2]), .tub_sel4(seg_cs_pin[3]),
     .tub_sel5(seg_cs_pin[4]), .tub_sel6(seg_cs_pin[5]), .tub_sel7(seg_cs_pin[6]), .tub_sel8(seg_cs_pin[7]),
-    .tub_control1(seg_data_0_pin), .tub_control2(seg_data_1_pin)
+    .tub_control1(seg_data_0_pin), .tub_control2(seg_data_1_pin), .convPeriod(total_cnt)
 );
 
 //matrix_info_display
@@ -703,6 +707,7 @@ always @(posedge clk or negedge rst_n) begin
         min_val <= 0; max_val <= 9;
         display_start <= 0;
         display_start80 <= 0;
+        load_seconds <= 4'd10;
         // 测试用灯
         led <= 14'b00_0000_0000_0011;
         // 初始?? storage inputs
@@ -718,14 +723,18 @@ always @(posedge clk or negedge rst_n) begin
                 if (btn_confirm_pulse) begin
                     case(sw_mode)
                         3'b001: state <= 10'd100;  // 模式1输入并存??
-                        3'b010: state <= 10'd200;  // 模式2随机生成
+                        3'b010: begin
+                            state <= 10'd200;  // 模式2随机生成
+                            rand_total <= 0;   // 清空随机个数
+                        end
                         3'b011: state <= 10'd300;  // 模式3矩阵展示
                         3'b100: state <= 10'd400;  // 模式4运算
+                        3'b101: state <= 10'd600;  // 模式6配置
                         default: state <= 10'd000;
                     endcase
                 end
             end
-
+            
             10'd99: begin
                     led_error_status <= 1'b1; // 1. 强制亮红灯
                     
@@ -749,7 +758,7 @@ always @(posedge clk or negedge rst_n) begin
                     end
                     else begin
                         // 一旦出错，直接亮灯，并保持在 100（相当于重置）
-                        // 任何错误的字符都会让系统认为“这是一次失败的尝试”，必须重新输入行
+                        // 任何错误的字符都会让系统认为"这是一次失败的尝试"，必须重新输入行
                         led_error_status <= 1'b1; 
                         state <= 10'd99; 
                     end
@@ -798,7 +807,7 @@ always @(posedge clk or negedge rst_n) begin
                         // 先不写入 RAM，而是暂存，去检查下一位是不是分隔符
                         // 假设我们需要一个寄存器 temp_val 来暂存这个数字
                         temp_val <= rx_data - "0"; 
-                        state <= 10'd131; // 跳转到“分隔符检查”状态
+                        state <= 10'd131; // 跳转到"分隔符检查"状态
                     end
                     // 情况 B: 收到无意义的分隔符（空格、逗号、换行）
                     else if (rx_data == " " || rx_data == "," || rx_data == 8'h0D || rx_data == 8'h0A) begin
@@ -849,8 +858,7 @@ always @(posedge clk or negedge rst_n) begin
                         state <= 10'd99;
                     end
                 end
-
-                // 如果用户没按键盘，而是按了 FPGA 上的“确认键”，也认为输入结束
+                // 如果用户没按键盘，而是按了 FPGA 上的"确认键"，也认为输入结束
                 if (btn_confirm_pulse) begin
                     // 将暂存值写入
                     storage_input_data[input_cnt] <= temp_val;
@@ -890,10 +898,13 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd200: begin
-                // uart传入r
-                led <= 14'b01_0000_0000_0000;
-                rx_buf <= rx_data;
-                rand_row <= rx_data-"0";
+                // 只在第一次时uart传入r
+                if (rand_total == 0) begin
+                    rx_buf <= rx_data;
+                    rand_row <= rx_data-"0";
+                end else begin
+                    state <= 10'd210;
+                end
 
                 if (btn_confirm_pulse) begin
                     state <= 10'd210;
@@ -904,10 +915,13 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd210: begin
-                // uart传入c，随机生成矩阵并存储
-                led <= 14'b01_0000_0000_0000;
-                rx_buf <= rx_data;
-                rand_col <= rx_data-"0";
+                // 只在第一次时uart传入c，随机生成矩阵并存储
+                if (rand_total == 0) begin
+                    rx_buf <= rx_data;
+                    rand_col <= rx_data-"0";
+                end else begin
+                    state <= 10'd220;
+                end
 
                 if (btn_confirm_pulse) begin
                     state <= 10'd220;
@@ -915,18 +929,33 @@ always @(posedge clk or negedge rst_n) begin
             end
 
             10'd220: begin
-                // uart传入c，随机生成矩??
-                led <= 14'b01_0000_0000_0000;
-                rand_gen_en <= 1'b1;
-                if(rand_update_done) begin
-                    rand_gen_en <= 1'b0;
+                // 只在第一次时uart传入生成数量，否则减少数量
+                rx_buf <= rx_data;
+
+                if (btn_confirm_pulse) begin
+                    if (rand_total > 0) begin
+                        rand_total <= rand_total - 3'b1;
+                        led <= rand_total;
+                    end else begin
+                        rand_total <= rx_data-"1";
+                        led <= rand_total;
+                    end
                     state <= 10'd230;
                 end
-                
             end
-           10'd230: begin
+            
+            10'd230: begin
+                // 激活随机，等待随机结束，减少计数
+                rand_gen_en <= 1'b1;
+                
+                if(rand_update_done) begin
+                    rand_gen_en <= 1'b0;
+                    state <= 10'd250;
+                end
+            end
+            
+            10'd250: begin
                 // 1. 准备数据 (Data Setup)
-                led <= 14'b01_0000_0000_0000;
              
                 wr_row <= rand_row;
                 wr_col <= rand_col; 
@@ -962,6 +991,7 @@ always @(posedge clk or negedge rst_n) begin
                 // 跳到专门??"触发状???"
                 state <= 10'd233; 
             end
+            
             10'd233: begin
                 // 空状态，等待写入脉冲产生
                 state <= 10'd234;
@@ -981,6 +1011,9 @@ always @(posedge clk or negedge rst_n) begin
                 // 【重要???立即拉低写使能！形?? 0->1->0 的脉??
                 wr_en_reg <= 1'b0; 
                 
+                if (rand_total > 0) begin
+                    state <= 10'd200;
+                end
                 // 在这里可以放心地等待多久都行，因?? wr_en 已经?? 0 ??
                 if (btn_confirm_pulse) begin
                     state <= 10'd000;
@@ -2283,11 +2316,20 @@ always @(posedge clk or negedge rst_n) begin
                 if (btn_confirm_pulse) begin
                     req_index <= rand_num - 3'b1;
                     display_start <= 0;
-                    state <= 10'd453;
+                    state <= 10'd452;
                 end
                 if (btn_return_pulse) begin
                     display_start <= 0;
                     state <= 10'd450;
+                end
+            end
+            
+            10'd600: begin
+                rx_buf <= rx_data;
+                load_seconds_setting <= rx_buf-"0";
+                
+                if (btn_confirm_pulse || btn_return_pulse) begin
+                    state <= 10'd000;
                 end
             end
         endcase
