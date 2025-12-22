@@ -241,6 +241,26 @@ always @(*) begin
         end
     end
 
+wire [8:0] sec_wire; // 连接倒计时模块和显示模块的线
+wire countdown_done; // 倒计时结束信号
+reg countdown_start; // 倒计时开始信号
+reg [7:0] load_seconds=8'd15; // 载入倒计时秒数
+wire [7:0] current_time; // 当前剩余秒数输出
+wire led1;
+wire led2;
+reg [7:0] load_seconds_setting=8'd15;
+// 实例化倒计时模块
+countdown u_countdown (
+    .clk(clk),
+    .reset(rst_n),
+    .en(countdown_start),        // 假设有一个按钮或信号触发倒计时
+    .load_seconds(load_seconds),  // 假设设定为15秒
+    .seconds_display(sec_wire), 
+    .done(countdown_done),
+    .led1(led1),
+    .led2(led2),
+    .current_time(current_time) // 当前剩余秒数输出（可选）
+);
 
 
 uart_rx #(.CLK_FREQ(CLK_FREQ), .BAUD_RATE(BAUD_RATE)) u_rx (
@@ -576,7 +596,7 @@ matrix_displayer u_matrix_displayer (
 // Segment Display
 segment_display u_segment_display(
     .clk(clk), .reset(rst_n),
-    .menuState(menuState), .seconds(seconds),
+    .menuState(menuState), .seconds(sec_wire),
     .tub_sel1(seg_cs_pin[0]), .tub_sel2(seg_cs_pin[1]), .tub_sel3(seg_cs_pin[2]), .tub_sel4(seg_cs_pin[3]),
     .tub_sel5(seg_cs_pin[4]), .tub_sel6(seg_cs_pin[5]), .tub_sel7(seg_cs_pin[6]), .tub_sel8(seg_cs_pin[7]),
     .tub_control1(seg_data_0_pin), .tub_control2(seg_data_1_pin)
@@ -667,6 +687,7 @@ reg [4:0] input_total;  // 总共需要录入多少个数据 (Row * Col)
 // 状???机
 integer i;
 always @(posedge clk or negedge rst_n) begin
+    
     if (!rst_n) begin
         state <= 10'd000;
         menuState <= 10'd010;
@@ -689,6 +710,7 @@ always @(posedge clk or negedge rst_n) begin
     end 
     else begin
         menuState <= state;
+        
         case(state)
             10'd000: begin
                 // 初始状???操作（留白??
@@ -701,11 +723,53 @@ always @(posedge clk or negedge rst_n) begin
                         3'b011: state <= 10'd300;  // 模式3矩阵展示
                         3'b100: state <= 10'd400;  // 模式4运算
                         3'b110: state <= 10'd600;  // 模式6随机数调试
+                        //3'b111: state <= 10'd700;  // 模式7倒计时调试
                         default: state <= 10'd000;
                     endcase
                 end
             end
-            
+            10'd700: begin
+                // 倒计时开始
+                led <= {1'b1,led1,led2,current_time[7:0]};
+                countdown_start <= 1'b1;
+                load_seconds <= 8'd15;
+               state <= 705;
+            end
+            10'd701:begin
+                led <= {1'b1,led1,led2,current_time[7:0]};
+                state<=10'd702;
+            end
+            10'd702:begin
+                led <= {1'b1,led1,led2,current_time[7:0]};
+                state<=10'd703;
+            end
+            10'd703:begin
+                led <= {1'b1,led1,led2,current_time[7:0]};
+                state<=10'd704;
+            end
+              10'd704:begin
+                led <= {1'b1,led1,led2,current_time[7:0]};
+                state<=10'd705;
+            end
+            10'd705:begin
+                countdown_start<=0;
+                led <= {1'b1,led1,led2,current_time[7:0]};
+                if(countdown_done) begin
+                    state<=10'd706;
+                end
+                if(btn_confirm_pulse)
+                begin
+                    state<=10'd000;
+                end
+            end
+            10'd706: begin
+                led <= {led1,led2,current_time[7:0]};
+                // 倒计时结束
+                led <= 14'b00_0000_0000_0001;
+                if(btn_return_pulse) begin
+                    state <= 10'd000;
+                end
+            end
             10'd600: begin
                 led <= rand_cnt;
                 rand_en <= 1'b1;
@@ -1289,7 +1353,12 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
-                
+                countdown_start <=0;
+                if(countdown_done && led_error_status)
+                begin
+                    led_error_status <= 1'b0;
+                    state <= 10'd420;
+                end
                 if (btn_confirm_pulse) begin
                     display_start <= 1'b0;
                     state <= 10'd425;
@@ -1304,7 +1373,11 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
-                
+                if(countdown_done && led_error_status)
+                begin
+                    led_error_status <= 1'b0;
+                    state <= 10'd420;
+                end
                 if (btn_confirm_pulse) begin
                     state <= 10'd426;
                 end
@@ -1324,8 +1397,14 @@ always @(posedge clk or negedge rst_n) begin
                 if (btn_confirm_pulse) begin
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
                         state <= 10'd427;
+                        load_seconds <= 0;
+                        led_error_status <= 1'b0;
+                        countdown_start <= 1'b1;
                     end else begin
-                        // 回到输入第二个矩阵的r，并触发倒计???
+                        // 回到输入第二个矩阵的r，并触发倒计时
+                        load_seconds <= load_seconds_setting;
+                        countdown_start <= 1'b1;
+                        led_error_status <= 1'b1;
                         state <= 10'd424;
                     end
                 end
@@ -1334,6 +1413,7 @@ always @(posedge clk or negedge rst_n) begin
                 end
             end
             10'd427: begin
+                countdown_start <= 1'b0;
                 // 准备展示选定的矩阵
                 matrix_opr_2_r2 <= req_scale_row;
                 matrix_opr_2_c2 <= req_scale_col;
