@@ -23,7 +23,6 @@ module top4 #(
     output [7:0] seg_data_0_pin,// 数码管段??0
     output [7:0] seg_data_1_pin,// 数码管段??1
     output [6:0] led_out
-   
 );
 
 assign led_out[0]=sw_countdown_setting[3];
@@ -716,6 +715,7 @@ always @(posedge clk or negedge rst_n) begin
         min_val <= 0; max_val <= 9;
         display_start <= 0;
         display_start80 <= 0;
+        countdown_start <= 0;
         load_seconds <= 4'd10;
         // 测试用灯
         led <= 14'b00_0000_0000_0011;
@@ -1923,8 +1923,8 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
-                if(countdown_done && led_error_status)
-                begin
+
+                if (countdown_done && led_error_status) begin
                     led_error_status <= 1'b0;
                     state <= 10'd420;
                 end
@@ -1942,11 +1942,15 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
+                req_scale_row <= matrix_opr_2_r2;
+                req_scale_col <= matrix_opr_2_c2;
+
                 if (countdown_done && led_error_status) begin
                     led_error_status <= 1'b0;
                     state <= 10'd420;
                 end
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b1;
                     state <= 10'd446;
                 end
                 if (btn_return_pulse) begin
@@ -1958,30 +1962,30 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"1";
-                req_scale_row <= matrix_opr_2_r2;
-                req_scale_col <= matrix_opr_2_c2;
                 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     if (matrix_opr_1_c1 == matrix_opr_2_r2) begin
                         load_seconds <= 0;
                         led_error_status <= 1'b0;
                         countdown_start <= 1'b1;
                         state <= 10'd447;
                     end else begin
-                        // 回到输入第二个矩阵的r，并触发倒计时
+                        // 回到输入第二个矩阵的r，并触发倒计???
                         load_seconds <= load_seconds_setting;
                         countdown_start <= 1'b1;
                         led_error_status <= 1'b1;
                         state <= 10'd444;
                     end
-                        
-                    
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
+            
             10'd447: begin
+                countdown_start <= 1'b0;
                 led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_2_r2 <= req_scale_row;
@@ -2287,16 +2291,29 @@ always @(posedge clk or negedge rst_n) begin
             10'd531: begin
                 // 获取随机的标量
                 rand_up <= scale_matrix_cnt;
+                display_row <= 1'b1;
+                display_col <= 1'b1;
                 led <= rand_up;
                 
                 if (btn_confirm_pulse) begin
                     scalar_value <= rand_num;
+                    matrix_display_data[0] <= rand_num;
                     display_start <= 0;
-                    state <= 10'd435;
+                    state <= 10'd532;
                 end
                 if (btn_return_pulse) begin
                     display_start <= 0;
                     state <= 10'd433;
+                end
+            end
+            
+            10'd532: begin
+                // 展示标量
+                display_start <= 1'b1;
+                
+                if (btn_confirm_pulse) begin
+                    display_start <= 0;
+                    state <= 10'd435;
                 end
             end
             
@@ -2350,8 +2367,8 @@ always @(posedge clk or negedge rst_n) begin
             
             10'd600: begin
                 if (sw_countdown_setting>=4'd5&&sw_countdown_setting<=4'd15&&btn_confirm_pulse ) begin
-                    load_seconds_setting <=sw_countdown_setting;
-                    state <= 10'd000;
+                load_seconds_setting <=sw_countdown_setting;
+                state <= 10'd000;
                 end
                 else if(btn_return_pulse)
                 begin
