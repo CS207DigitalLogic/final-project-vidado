@@ -599,7 +599,7 @@ matrix_displayer u_matrix_displayer (
     .d18(matrix_display_data[18]),.d19(matrix_display_data[19]),.d20(matrix_display_data[20]),
     .d21(matrix_display_data[21]),.d22(matrix_display_data[22]),.d23(matrix_display_data[23]),
     .d24(matrix_display_data[24]),
-    .tx_start   (disp_tx_start), /
+    .tx_start   (disp_tx_start),
     .tx_data    (disp_tx_data),  
     .tx_busy    (uart_real_busy) // 监听 UART 真正的忙信号
 );
@@ -711,6 +711,7 @@ always @(posedge clk or negedge rst_n) begin
         min_val <= 0; max_val <= 9;
         display_start <= 0;
         display_start80 <= 0;
+        countdown_start <= 0;
         load_seconds <= 4'd10;
         // 测试用灯
         led <= 14'b00_0000_0000_0011;
