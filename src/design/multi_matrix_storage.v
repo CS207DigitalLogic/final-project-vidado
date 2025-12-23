@@ -1,7 +1,7 @@
 module multi_matrix_storage #(
     parameter DATA_WIDTH        = 5'd8,        // 数据位宽
     parameter MAX_SIZE          = 5'd5,        // 单个矩阵最大规模（1~5）
-    parameter MATRIX_NUM        = 5'd8,        // 全局最大矩阵数量
+    parameter MATRIX_NUM        = 5'd25,        // 全局最大矩阵数量
     parameter MAX_MATRIX_PER_SIZE = 5'd4       // 每个规模最多存储矩阵数
 )(
     input wire                    clk,
