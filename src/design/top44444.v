@@ -106,7 +106,7 @@ reg start_search_display_pulse;
     // 3. Search Displayer 的信号
     wire        search_tx_start;
     wire [7:0]  search_tx_data;
-    wire        search_busy;    /
+    wire        search_busy;  
 
     // 4. 终于使用的 UART TX 的信号
     reg         final_tx_start;
@@ -599,7 +599,7 @@ matrix_displayer u_matrix_displayer (
     .d18(matrix_display_data[18]),.d19(matrix_display_data[19]),.d20(matrix_display_data[20]),
     .d21(matrix_display_data[21]),.d22(matrix_display_data[22]),.d23(matrix_display_data[23]),
     .d24(matrix_display_data[24]),
-    .tx_start   (disp_tx_start), /
+    .tx_start   (disp_tx_start),
     .tx_data    (disp_tx_data),  
     .tx_busy    (uart_real_busy) // 监听 UART 真正的忙信号
 );
@@ -711,6 +711,7 @@ always @(posedge clk or negedge rst_n) begin
         min_val <= 0; max_val <= 9;
         display_start <= 0;
         display_start80 <= 0;
+        countdown_start <= 0;
         load_seconds <= 4'd10;
         // 测试用灯
         led <= 14'b00_0000_0000_0011;
@@ -1057,16 +1058,14 @@ always @(posedge clk or negedge rst_n) begin
                 rx_buf <= rx_data;
                 display_col <= rx_data-"0";
                 if (btn_confirm_pulse) begin
-                    // 1. 将用户输入的??/列传递给存储查询接口 (matrix_search_displayer 使用)
+                    // 1. 将用户输入的行/列传递给存储查询接口 (matrix_search_displayer 使用)
                     req_scale_row <= display_row;
-                    // 注意：此?? display_col 已经是最新???（假设用户输入后才按确认）
                     req_scale_col <= display_col; 
                     
-                    // 2. 拉高启动信号，触?? matrix_search_displayer
+                    // 2. 拉高启动信号，触发 matrix_search_displayer
                     start_search_display_pulse <= 1'b1;
                     
-                    // 3. 跳转到显示保持状??
-                    // 如果停留?? 320，display_start 持续为高可能会导致模块不断复位或重发
+                    // 3. 跳转到显示保持状态
                     state <= 10'd330; 
                 end
                 
@@ -1077,7 +1076,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             10'd330: begin
                  start_search_display_pulse <= 1'b0;
-                // 等待用户按下返回或确认键??出显??
+                // 等待用户按下返回或确认键
                 if (btn_return_pulse || btn_confirm_pulse) begin
                     state <= 10'd000;
                 
@@ -1235,12 +1234,12 @@ always @(posedge clk or negedge rst_n) begin
             10'd415: begin
                 // 先拉高使能，不要在这个周期立刻读结果
                 trans_en <= 1;
-                // 跳转到等待计算结果的状???
+                // 跳转到等待计算结果的状态
                 state <= 10'd416; 
             end
 
             10'd416: begin
-                // 将trans_en变为1，开始转置，将转置结果接到display???
+                // 将trans_en变为1，开始转置，将转置结果接到display
                 display_start <= 0;
                 display_row <= trans_r_out;
                 display_col <= trans_c_out;
@@ -1278,7 +1277,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd417: begin
-                // 将display_start变为1，开始传???
+                // 将display_start变为1，开始传输
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1615,7 +1614,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd431: begin
-                // uart传入c，展示矩???
+                // uart传入c，展示矩阵
                 rx_buf <= rx_data;
                 matrix_opr_1_c1 <= rx_buf-"0";
                 req_scale_col <= matrix_opr_1_c1;
@@ -1731,7 +1730,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd435: begin
-                // 将scalar_en变为1，开始转置，将乘法结果接到display???
+                // 将scalar_en变为1，开始转置，将乘法结果接到display
                 scalar_en <= 1;
                 display_row <= scalar_r_out;
                 display_col <= scalar_c_out;
@@ -1770,7 +1769,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd436: begin
-                // 将display_start变为1，开始传???
+                // 将display_start变为1，开始传输
                 display_start <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -1914,8 +1913,8 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
-                if(countdown_done && led_error_status)
-                begin
+
+                if (countdown_done && led_error_status) begin
                     led_error_status <= 1'b0;
                     state <= 10'd420;
                 end
@@ -1933,11 +1932,15 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
+                req_scale_row <= matrix_opr_2_r2;
+                req_scale_col <= matrix_opr_2_c2;
+
                 if (countdown_done && led_error_status) begin
                     led_error_status <= 1'b0;
                     state <= 10'd420;
                 end
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b1;
                     state <= 10'd446;
                 end
                 if (btn_return_pulse) begin
@@ -1949,10 +1952,9 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"1";
-                req_scale_row <= matrix_opr_2_r2;
-                req_scale_col <= matrix_opr_2_c2;
                 
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     if (matrix_opr_1_c1 == matrix_opr_2_r2) begin
                         load_seconds <= 0;
                         led_error_status <= 1'b0;
@@ -1965,14 +1967,15 @@ always @(posedge clk or negedge rst_n) begin
                         led_error_status <= 1'b1;
                         state <= 10'd444;
                     end
-                        
-                    
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
+            
             10'd447: begin
+                countdown_start <= 1'b0;
                 led <= req_index;
                 // 准备展示选定的矩阵
                 matrix_opr_2_r2 <= req_scale_row;
@@ -2046,7 +2049,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd449: begin
-                // 将mult_en变为1，开始加法，将乘法结果接到display???
+                // 将mult_en变为1，开始加法，将乘法结果接到displa
                 mult_en <= 1;
                 display_row <= mult_r_out;
                 display_col <= mult_c_out;
@@ -2188,7 +2191,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd454: begin
-                // 将conv_en变为1，开始卷积，将卷积结果接到displayer80???
+                // 将conv_en变为1，开始卷积，将卷积结果接到displayer80
                 conv_en <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -2200,7 +2203,7 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd455: begin
-                // 将display80_start变为1，开始传???
+                // 将display80_start变为1，开始传输
                 display_start80 <= 1;
                 
                 if (btn_confirm_pulse) begin
@@ -2278,16 +2281,29 @@ always @(posedge clk or negedge rst_n) begin
             10'd531: begin
                 // 获取随机的标量
                 rand_up <= scale_matrix_cnt;
+                display_row <= 1'b1;
+                display_col <= 1'b1;
                 led <= rand_up;
                 
                 if (btn_confirm_pulse) begin
                     scalar_value <= rand_num;
+                    matrix_display_data[0] <= rand_num;
                     display_start <= 0;
-                    state <= 10'd435;
+                    state <= 10'd532;
                 end
                 if (btn_return_pulse) begin
                     display_start <= 0;
                     state <= 10'd433;
+                end
+            end
+            
+            10'd532: begin
+                // 展示标量
+                display_start <= 1'b1;
+                
+                if (btn_confirm_pulse) begin
+                    display_start <= 0;
+                    state <= 10'd435;
                 end
             end
             
@@ -2341,8 +2357,8 @@ always @(posedge clk or negedge rst_n) begin
             
             10'd600: begin
                 if (sw_countdown_setting>=4'd5&&sw_countdown_setting<=4'd15&&btn_confirm_pulse ) begin
-                    load_seconds_setting <=sw_countdown_setting;
-                    state <= 10'd000;
+                load_seconds_setting <=sw_countdown_setting;
+                state <= 10'd000;
                 end
                 else if(btn_return_pulse)
                 begin
