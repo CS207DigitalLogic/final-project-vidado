@@ -1,5 +1,3 @@
-`timescale 1ns / 1ps
-
 module top4 #(
     parameter DATA_WIDTH          = 9,        // 数据位宽
     parameter MAX_SIZE            = 5,        // 单个矩阵??大规模（1~5??
@@ -1447,12 +1445,15 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
+                req_scale_col<= matrix_opr_2_c2;
+                req_scale_row<= matrix_opr_2_r2;
                 
                 if (countdown_done && led_error_status) begin
                     led_error_status <= 1'b0;
                     state <= 10'd420;
                 end
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b1;
                     state <= 10'd426;
                 end
                 
@@ -1465,10 +1466,9 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入req_index，将指定矩阵传入加法模块2端口
                 rx_buf <= rx_data;
                 req_index <= rx_buf-"1";
-                req_scale_col<= matrix_opr_2_c2;
-                req_scale_row<= matrix_opr_2_r2;
                
                 if (btn_confirm_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     if ((matrix_opr_1_r1 == matrix_opr_2_r2) && (matrix_opr_1_c1 == matrix_opr_2_c2)) begin
                         state <= 10'd427;
                         load_seconds <= 0;
@@ -1483,6 +1483,7 @@ always @(posedge clk or negedge rst_n) begin
                     end
                 end
                 if (btn_return_pulse) begin
+                    start_search_display_pulse <= 1'b0;
                     state <= 10'd400;
                 end
             end
@@ -1923,6 +1924,7 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
+                countdown_start <= 0;
 
                 if (countdown_done && led_error_status) begin
                     led_error_status <= 1'b0;
