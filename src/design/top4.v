@@ -17,16 +17,25 @@ module top4 #(
     input  wire btn_confirm,    // 确认按钮
     input  wire btn_return,     // 返回按钮
     input  wire btn_random,     // 随机按钮
+    input [3:0] sw_countdown_setting,
     output reg led_error_status,// 错误状???指示灯
     output [7:0] seg_cs_pin,    // 8个数码管位???
     output [7:0] seg_data_0_pin,// 数码管段??0
     output [7:0] seg_data_1_pin,// 数码管段??1
-    output reg [13:0] led
+    output [6:0] led_out
+   
 );
 
+assign led_out[0]=sw_countdown_setting[3];
+assign led_out[1]=sw_countdown_setting[2];
+assign led_out[2]=sw_countdown_setting[1];
+assign led_out[3]=sw_countdown_setting[0];
+assign led_out[4]=sw_mode[2];
+assign led_out[5]=sw_mode[1];
+assign led_out[6]=sw_mode[0];
 // ========================== 1. 内部信号定义 ==========================
 
-
+reg [13:0] led;
 // 数码管显示模块相关信??
 reg [11:0] menuState;
 reg [8:0] seconds;
@@ -1154,7 +1163,7 @@ always @(posedge clk or negedge rst_n) begin
             10'd412: begin
                 // uart传入req_index，将指定矩阵传入转置模块
                 rx_buf <= rx_data;
-                req_index <= rx_buf-"0";
+                req_index <= rx_buf-"1";
 
                 if (btn_confirm_pulse) begin
                     start_search_display_pulse <= 1'b0;
@@ -1334,7 +1343,7 @@ always @(posedge clk or negedge rst_n) begin
             10'd422: begin
                 // uart传入req_index
                 rx_buf <= rx_data;
-                req_index <= rx_buf-"0";
+                req_index <= rx_buf-"1";
                 
                 if (btn_confirm_pulse) begin
                     start_search_display_pulse <= 1'b0;
@@ -1455,7 +1464,7 @@ always @(posedge clk or negedge rst_n) begin
             10'd426: begin
                 // uart传入req_index，将指定矩阵传入加法模块2端口
                 rx_buf <= rx_data;
-                req_index <= rx_buf-"0";
+                req_index <= rx_buf-"1";
                 req_scale_col<= matrix_opr_2_c2;
                 req_scale_row<= matrix_opr_2_r2;
                
@@ -1633,7 +1642,7 @@ always @(posedge clk or negedge rst_n) begin
             10'd432: begin
                 // uart传入req_index，将指定矩阵传入乘法模块
                 rx_buf <= rx_data;
-                req_index <= rx_buf-"0";
+                req_index <= rx_buf-"1";
 
                 if (btn_confirm_pulse) begin
                     start_search_display_pulse <= 1'b0;
@@ -1826,7 +1835,7 @@ always @(posedge clk or negedge rst_n) begin
             10'd442: begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块1端口
                 rx_buf <= rx_data;
-                req_index <= rx_buf-"0";
+                req_index <= rx_buf-"1";
                 
                 if (btn_confirm_pulse) begin
                     start_search_display_pulse <= 1'b0;
@@ -1914,7 +1923,11 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入r
                 rx_buf <= rx_data;
                 matrix_opr_2_r2 <= rx_buf-"0";
-
+                if(countdown_done && led_error_status)
+                begin
+                    led_error_status <= 1'b0;
+                    state <= 10'd420;
+                end
                 if (btn_confirm_pulse) begin
                     display_start <= 1'b0;
                     state <= 10'd445;
@@ -1929,7 +1942,10 @@ always @(posedge clk or negedge rst_n) begin
                 // uart传入c
                 rx_buf <= rx_data;
                 matrix_opr_2_c2 <= rx_buf-"0";
-
+                if (countdown_done && led_error_status) begin
+                    led_error_status <= 1'b0;
+                    state <= 10'd420;
+                end
                 if (btn_confirm_pulse) begin
                     state <= 10'd446;
                 end
@@ -1941,17 +1957,25 @@ always @(posedge clk or negedge rst_n) begin
             10'd446: begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
-                req_index <= rx_buf-"0";
+                req_index <= rx_buf-"1";
                 req_scale_row <= matrix_opr_2_r2;
                 req_scale_col <= matrix_opr_2_c2;
                 
                 if (btn_confirm_pulse) begin
                     if (matrix_opr_1_c1 == matrix_opr_2_r2) begin
+                        load_seconds <= 0;
+                        led_error_status <= 1'b0;
+                        countdown_start <= 1'b1;
                         state <= 10'd447;
                     end else begin
-                        // 回到输入第二个矩阵的r，并触发倒计???
+                        // 回到输入第二个矩阵的r，并触发倒计时
+                        load_seconds <= load_seconds_setting;
+                        countdown_start <= 1'b1;
+                        led_error_status <= 1'b1;
                         state <= 10'd444;
                     end
+                        
+                    
                 end
                 if (btn_return_pulse) begin
                     state <= 10'd400;
@@ -2093,7 +2117,7 @@ always @(posedge clk or negedge rst_n) begin
             10'd451: begin
                 // uart传入req_index，将指定矩阵传入矩阵乘法模块2端口
                 rx_buf <= rx_data;
-                req_index <= rx_buf-"0";
+                req_index <= rx_buf-"1";
                 start_search_display_pulse <= 1'b1;
                 
                 if (btn_confirm_pulse) begin
@@ -2325,10 +2349,12 @@ always @(posedge clk or negedge rst_n) begin
             end
             
             10'd600: begin
-                rx_buf <= rx_data;
-                load_seconds_setting <= rx_buf-"0";
-                
-                if (btn_confirm_pulse || btn_return_pulse) begin
+                if (sw_countdown_setting>=4'd5&&sw_countdown_setting<=4'd15&&btn_confirm_pulse ) begin
+                    load_seconds_setting <=sw_countdown_setting;
+                    state <= 10'd000;
+                end
+                else if(btn_return_pulse)
+                begin
                     state <= 10'd000;
                 end
             end
