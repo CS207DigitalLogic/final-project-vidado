@@ -106,7 +106,7 @@ reg start_search_display_pulse;
     // 3. Search Displayer 的信号
     wire        search_tx_start;
     wire [7:0]  search_tx_data;
-    wire        search_busy;    /
+    wire        search_busy;  
 
     // 4. 终于使用的 UART TX 的信号
     reg         final_tx_start;
