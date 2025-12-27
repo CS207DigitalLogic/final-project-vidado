@@ -36,7 +36,7 @@ https://github.com/CS207DigitalLogic/final-project-vidado
 ---
 
 ### 2. 模块设计
-
+![alt text](image.png)
 | 模块名称 (Module Name) | 输入端口 (Input Ports) | 输出端口 (Output Ports) | 功能描述 (Function) |
 | :--- | :--- | :--- | :--- |
 | **Top** | A[7:0], ensure, back, random, Uart[7:0] | 数码管, Uart[7:0], 错误显示灯 | 切换状态并调用功能子模块 |
