@@ -77,7 +77,7 @@ https://github.com/CS207DigitalLogic/final-project-vidado
 ## 开源和AI使用以及思考总结
 
 ### 使用网络代码情况说明
-- 随机数模块`random_num_generator`采用了https://blog.csdn.net/weixin_42443533/article/details/149155851，
+- 随机数模块`random_num_generator`采用了https://blog.csdn.net/weixin_42443533/article/details/149155851，理解伪随机数生成原理后结合AI完成了随机数模块的代码。
 ### 关于AI使用情况和效果
 #### 使用场景
 我们在项目的全流程（开发、调试、代码注释、testbench生成）中都使用了AI。在项目的框架、接口设计、特定功模块代码生成也参考了AI生成的代码。使用过的AI工具包括豆包、Deepseek，Gemimi，ChatGPT等主流AI工具。
